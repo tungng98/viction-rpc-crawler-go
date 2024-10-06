@@ -7,20 +7,22 @@ import (
 )
 
 type Issue struct {
-	Type        string     `bson:"type"`
-	TxHash      string     `bson:"txHash"`
-	BlockNumber *BigInt    `bson:"blockNumber"`
-	BlockHash   string     `bson:"blockHash"`
-	Timestamp   *Timestamp `bson:"timestamp"`
-	TimeString  string     `bson:"timestring"`
+	Type           string     `bson:"type"`
+	TxHash         string     `bson:"txHash"`
+	BlockNumber    *BigInt    `bson:"blockNumber"`
+	BlockNumberHex string     `bson:"blockNumberHex"`
+	BlockHash      string     `bson:"blockHash"`
+	Timestamp      *Timestamp `bson:"timestamp"`
+	TimeString     string     `bson:"timestring"`
 
 	Extras map[string]interface{} `bson:"extras"`
 }
 
 func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) error {
 	extras := map[string]interface{}{
-		"prevBlockNumber": &BigInt{prevBlockNumber},
-		"prevBlockHash":   prevBlockHash,
+		"prevBlockNumber":    &BigInt{prevBlockNumber},
+		"prevBlockNumberHex": "0x" + (&BigInt{prevBlockNumber}).Hex(),
+		"prevBlockHash":      prevBlockHash,
 	}
 	issue := &Issue{
 		Type:        "duplicated_tx_hash",
@@ -34,6 +36,7 @@ func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int
 
 func (c *DbClient) insertIssue(issue *Issue) error {
 	now := time.Now()
+	issue.BlockNumberHex = "0x" + issue.BlockNumber.Hex()
 	issue.Timestamp = &Timestamp{now}
 	issue.TimeString = now.UTC().Format(time.RFC3339Nano)
 	_, err := c.Collection(COLLECTION_ISSUES).InsertOne(

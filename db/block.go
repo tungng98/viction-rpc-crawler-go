@@ -8,8 +8,9 @@ import (
 )
 
 type Block struct {
-	Type   string  `bson:"type"`
-	Number *BigInt `bson:"number"`
+	Type      string  `bson:"type"`
+	Number    *BigInt `bson:"number"`
+	NumberHex string  `bson:"numberHex"`
 }
 
 func (c *DbClient) GetHighestBlock() (*Block, error) {
@@ -48,6 +49,7 @@ func (c *DbClient) findBlockByType(typ string) (*Block, error) {
 }
 
 func (c *DbClient) insertBlock(block *Block) error {
+	block.NumberHex = "0x" + block.Number.Hex()
 	_, err := c.Collection(COLLECTION_BLOCKS).InsertOne(
 		context.TODO(),
 		block,
@@ -56,6 +58,7 @@ func (c *DbClient) insertBlock(block *Block) error {
 }
 
 func (c *DbClient) updateBlockByType(typ string, block *Block) error {
+	block.NumberHex = "0x" + block.Number.Hex()
 	_, err := c.Collection(COLLECTION_BLOCKS).UpdateOne(
 		context.TODO(),
 		bson.D{{Key: "type", Value: typ}},

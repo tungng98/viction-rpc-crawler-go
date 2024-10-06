@@ -8,9 +8,10 @@ import (
 )
 
 type TxHash struct {
-	Hash        string  `bson:"hash"`
-	BlockNumber *BigInt `bson:"blockNumber"`
-	BlockHash   string  `bson:"blockHash"`
+	Hash           string  `bson:"hash"`
+	BlockNumber    *BigInt `bson:"blockNumber"`
+	BlockNumberHex string  `bson:"blockNumberHex"`
+	BlockHash      string  `bson:"blockHash"`
 }
 
 func (c *DbClient) GetTxHash(hash string) (*TxHash, error) {
@@ -51,6 +52,7 @@ func (c *DbClient) findTxHashByHash(hash string) (*TxHash, error) {
 }
 
 func (c *DbClient) insertTxHash(txHash *TxHash) error {
+	txHash.BlockNumberHex = "0x" + txHash.BlockNumber.Hex()
 	_, err := c.Collection(COLLECTION_TX_HASHES).InsertOne(
 		context.TODO(),
 		txHash,
@@ -59,6 +61,7 @@ func (c *DbClient) insertTxHash(txHash *TxHash) error {
 }
 
 func (c *DbClient) updateTxHashByHash(hash string, txHash *TxHash) error {
+	txHash.BlockNumberHex = "0x" + txHash.BlockNumber.Hex()
 	_, err := c.Collection(COLLECTION_TX_HASHES).UpdateOne(
 		context.TODO(),
 		bson.D{{Key: "hash", Value: hash}},
