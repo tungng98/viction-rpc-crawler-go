@@ -7,6 +7,7 @@ import (
 
 func TestGetHighestBlock(t *testing.T) {
 	db := prepareDatabaseForBlocks()
+	defer db.Disconnect()
 
 	tests := []struct {
 		Name   string
@@ -20,7 +21,7 @@ func TestGetHighestBlock(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error while getting highest block number. %v", err)
 			}
-			if block.Number.N.Cmp(tt.Number) != 0 {
+			if !block.Number.Equals2(tt.Number) {
 				t.Fatalf("Highest block number mismatch. Expected '%s' Actual '%s'", tt.Number.String(), block.Number.String())
 			}
 		})

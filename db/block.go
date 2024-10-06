@@ -28,6 +28,9 @@ func (c *DbClient) SaveHighestBlock(number *big.Int) error {
 		}
 		return c.insertBlock(block)
 	}
+	if block.Number.Equals2(number) {
+		return nil
+	}
 	block.Number = &BigInt{number}
 	return c.updateBlockByType("highest", block)
 }
