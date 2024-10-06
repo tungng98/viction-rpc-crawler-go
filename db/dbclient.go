@@ -9,6 +9,7 @@ import (
 
 const (
 	COLLECTION_BLOCKS    = "blocks"
+	COLLECTION_ISSUES    = "issues"
 	COLLECTION_TX_HASHES = "txHashes"
 )
 
@@ -31,10 +32,6 @@ func (c *DbClient) Collection(collection string) *mongo.Collection {
 
 func (c *DbClient) Disconnect() {
 	c.c.Disconnect(context.TODO())
-}
-
-func (c *DbClient) isEmptyResult(result *mongo.SingleResult) bool {
-	return c.isEmptyResultError(result.Err())
 }
 
 func (c *DbClient) isEmptyResultError(err error) bool {

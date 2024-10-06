@@ -3,6 +3,7 @@ package db
 import (
 	"errors"
 	"math/big"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/bsontype"
@@ -71,5 +72,53 @@ func (i *BigInt) UnmarshalBSONValue(btype bsontype.Type, data []byte) error {
 	}
 	n, _ := new(big.Int).SetString(*s, 10)
 	i.N = n
+	return nil
+}
+
+type Timestamp struct {
+	t time.Time
+}
+
+func (t *Timestamp) MarshalBSONValue() (bsontype.Type, []byte, error) {
+	if t == nil {
+		return bson.TypeDateTime, nil, nil
+	}
+	return bson.MarshalValue(t.t.Unix())
+}
+
+func (t *Timestamp) UnmarshalBSONValue(btype bsontype.Type, data []byte) error {
+	if btype != bson.TypeDateTime {
+		return errors.New("cannot unmarshal non-numeric bson value to Timestamp")
+	}
+	var i *int64
+	err := bson.UnmarshalValue(btype, data, &i)
+	if err != nil {
+		return err
+	}
+	t.t = time.Unix(*i, 0)
+	return nil
+}
+
+type TimestampNano struct {
+	t time.Time
+}
+
+func (t *TimestampNano) MarshalBSONValue() (bsontype.Type, []byte, error) {
+	if t == nil {
+		return bson.TypeInt64, nil, nil
+	}
+	return bson.MarshalValue(t.t.UnixNano())
+}
+
+func (t *TimestampNano) UnmarshalBSONValue(btype bsontype.Type, data []byte) error {
+	if btype != bson.TypeInt64 {
+		return errors.New("cannot unmarshal non-numeric bson value to Timestamp")
+	}
+	var i *int64
+	err := bson.UnmarshalValue(btype, data, &i)
+	if err != nil {
+		return err
+	}
+	t.t = time.Unix(*i/int64(1_000_000_000), *i%int64(1_000_000_000))
 	return nil
 }
