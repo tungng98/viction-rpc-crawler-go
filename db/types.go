@@ -12,6 +12,29 @@ type BigInt struct {
 	N *big.Int
 }
 
+func (i *BigInt) Equals(j *BigInt) bool {
+	isNil := i == nil || i.N == nil
+	isNjl := j == nil || j.N == nil
+	if isNil && isNjl {
+		return true
+	}
+	if isNil != isNjl {
+		return false
+	}
+	return i.N.Cmp(j.N) == 0
+}
+
+func (i *BigInt) Equals2(n *big.Int) bool {
+	isNil := i == nil || i.N == nil
+	if isNil && n == nil {
+		return true
+	}
+	if (isNil && n != nil) || (!isNil && n == nil) {
+		return false
+	}
+	return i.N.Cmp(n) == 0
+}
+
 func (i *BigInt) HasValue() bool {
 	return i != nil && i.N != nil
 }
