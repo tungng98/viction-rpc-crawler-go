@@ -8,9 +8,9 @@ import (
 )
 
 const (
-	COLLECTION_BLOCKS    = "blocks"
-	COLLECTION_ISSUES    = "issues"
-	COLLECTION_TX_HASHES = "txHashes"
+	COLLECTION_CHECKPOINTS = "checkpoints"
+	COLLECTION_ISSUES      = "issues"
+	COLLECTION_TX_HASHES   = "txHashes"
 )
 
 type DbClient struct {

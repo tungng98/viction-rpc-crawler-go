@@ -21,8 +21,8 @@ func TestGetHighestBlock(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error while getting highest block number. %v", err)
 			}
-			if !block.Number.Equals2(tt.Number) {
-				t.Fatalf("Highest block number mismatch. Expected '%s' Actual '%s'", tt.Number.String(), block.Number.String())
+			if !block.BlockNumber.Equals2(tt.Number) {
+				t.Fatalf("Highest block number mismatch. Expected '%s' Actual '%s'", tt.Number.String(), block.BlockNumber.String())
 			}
 		})
 	}
