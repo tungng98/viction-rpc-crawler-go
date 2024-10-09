@@ -34,6 +34,10 @@ func (c *DbClient) SaveTxHash(hash string, blockNumber *big.Int, blockHash strin
 	if txHash.BlockNumber.Equals2(blockNumber) && txHash.BlockHash == blockHash {
 		return nil
 	}
+	err = c.SaveDuplicatedTxHashIssue(hash, blockNumber, blockHash, txHash.BlockNumber.N, txHash.BlockHash)
+	if err != nil {
+		return err
+	}
 	txHash.BlockNumber = &BigInt{blockNumber}
 	txHash.BlockHash = blockHash
 	return c.updateTxHashByHash(hash, txHash)

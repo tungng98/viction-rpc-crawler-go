@@ -18,6 +18,21 @@ type Issue struct {
 	Extras map[string]interface{} `bson:"extras"`
 }
 
+func (c *DbClient) SaveDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) error {
+	extras := map[string]interface{}{
+		"prevBlockNumber":    &BigInt{prevBlockNumber},
+		"prevBlockNumberHex": "0x" + (&BigInt{prevBlockNumber}).Hex(),
+	}
+	issue := &Issue{
+		Type:        "duplicated_block_hash",
+		TxHash:      "",
+		BlockNumber: &BigInt{blockNumber},
+		BlockHash:   blockHash,
+		Extras:      extras,
+	}
+	return c.insertIssue(issue)
+}
+
 func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) error {
 	extras := map[string]interface{}{
 		"prevBlockNumber":    &BigInt{prevBlockNumber},
