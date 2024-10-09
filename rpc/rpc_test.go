@@ -1,6 +1,7 @@
 package rpc
 
 import (
+	"encoding/json"
 	"testing"
 )
 
@@ -16,7 +17,11 @@ func TestRcpCallString(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := rpcCall[string](RPC_URL, tt.method, tt.args...)
+			client, err := Connect(RPC_URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = rpcCall[json.RawMessage](client, tt.method, tt.args...)
 			if err != nil {
 				t.Fatal(err)
 			}
