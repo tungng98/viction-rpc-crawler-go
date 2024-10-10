@@ -32,7 +32,6 @@ func InitKoanf() (*RootConfig, error) {
 	if cfg != nil {
 		return cfg, nil
 	}
-	isPortable := IsPortable()
 	configFile := "rpc-crawler.yml"
 	exec, _ := os.Executable()
 	exec, _ = filepath.Abs(exec)
@@ -41,8 +40,10 @@ func InitKoanf() (*RootConfig, error) {
 	if strings.HasPrefix(execName, "__debug_bin") {
 		cfgName = "viction-rpc-crawler-go.yml"
 	}
-	if isPortable {
+	isPortable := false
+	if isExist(path.Join(path.Dir(exec), cfgName)) {
 		configFile = path.Join(path.Dir(exec), cfgName)
+		isPortable = true
 	} else if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
 		home := os.Getenv("HOME")
 		configFile = path.Join(home, ".config", "vicsrv", cfgName)
@@ -60,14 +61,6 @@ func InitKoanf() (*RootConfig, error) {
 	cfg.ConfigFile = configFile
 	cfg.IsPortable = isPortable
 	return cfg, nil
-}
-
-func IsPortable() bool {
-	exec, _ := os.Executable()
-	exec, _ = filepath.Abs(exec)
-	base := filepath.Base(exec)
-	portableFile := path.Join(path.Dir(exec), base+".portable")
-	return isExist(portableFile)
 }
 
 func defaultConfig() *koanf.Koanf {
