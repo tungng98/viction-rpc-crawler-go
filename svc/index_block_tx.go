@@ -37,13 +37,6 @@ func (s *IndexBlockTxService) Exec() {
 		blockNum = checkpoint.BlockNumber.N
 	}
 	for {
-		finality, err := rpc.GetBlockFinalityByNumber(blockNum)
-		if err != nil {
-			panic(err)
-		}
-		if finality < 75 {
-			break
-		}
 		block, err := rpc.GetBlockByNumber(blockNum)
 		if err != nil {
 			panic(err)
