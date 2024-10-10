@@ -30,7 +30,7 @@ func main() {
 	if cfgErr != nil {
 		panic(cfgErr)
 	}
-	connStr := fmt.Sprintf("mongodb://%s:%s@%s:%d", cfg.MongoDB.Username, cfg.MongoDB.Password, cfg.MongoDB.Host, cfg.MongoDB.Port)
+	connStr := fmt.Sprintf("mongodb://%s:%s@%s:%d/?authSource=%s", cfg.MongoDB.Username, cfg.MongoDB.Password, cfg.MongoDB.Host, cfg.MongoDB.Port, cfg.MongoDB.Database)
 	if cfg.MongoDB.Username == "" || cfg.MongoDB.Password == "" {
 		connStr = fmt.Sprintf("mongodb://%s:%d", cfg.MongoDB.Host, cfg.MongoDB.Port)
 	}
