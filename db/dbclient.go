@@ -38,3 +38,25 @@ func (c *DbClient) Disconnect() {
 func (c *DbClient) isEmptyResultError(err error) bool {
 	return err != nil && err.Error() == "mongo: no documents in result"
 }
+
+type BulkWriteResult struct {
+	InsertedCount int64
+	MatchedCount  int64
+	ModifiedCount int64
+	DeletedCount  int64
+	UpsertedCount int64
+	UpsertedIDs   map[int64]interface{}
+}
+
+func newBulkWriteResult(result *mongo.BulkWriteResult) *BulkWriteResult {
+	if result == nil {
+		return nil
+	}
+	return &BulkWriteResult{
+		InsertedCount: result.InsertedCount,
+		MatchedCount:  result.MatchedCount,
+		ModifiedCount: result.ModifiedCount,
+		UpsertedCount: result.UpsertedCount,
+		DeletedCount:  result.DeletedCount,
+	}
+}

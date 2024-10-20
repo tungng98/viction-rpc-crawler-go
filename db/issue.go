@@ -4,6 +4,8 @@ import (
 	"context"
 	"math/big"
 	"time"
+
+	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type Issue struct {
@@ -18,7 +20,7 @@ type Issue struct {
 	Extras map[string]interface{} `bson:"extras"`
 }
 
-func (c *DbClient) SaveDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) error {
+func NewDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) *Issue {
 	extras := map[string]interface{}{
 		"prevBlockNumber":    &BigInt{prevBlockNumber},
 		"prevBlockNumberHex": "0x" + (&BigInt{prevBlockNumber}).Hex(),
@@ -30,10 +32,10 @@ func (c *DbClient) SaveDuplicatedBlockHashIssue(blockHash string, blockNumber *b
 		BlockHash:   blockHash,
 		Extras:      extras,
 	}
-	return c.insertIssue(issue)
+	return issue
 }
 
-func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) error {
+func NewDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) *Issue {
 	extras := map[string]interface{}{
 		"prevBlockNumber":    &BigInt{prevBlockNumber},
 		"prevBlockNumberHex": "0x" + (&BigInt{prevBlockNumber}).Hex(),
@@ -46,7 +48,21 @@ func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int
 		BlockHash:   blockHash,
 		Extras:      extras,
 	}
+	return issue
+}
+
+func (c *DbClient) SaveDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) error {
+	issue := NewDuplicatedBlockHashIssue(blockHash, blockNumber, prevBlockNumber)
 	return c.insertIssue(issue)
+}
+
+func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) error {
+	issue := NewDuplicatedTxHashIssue(txHash, blockNumber, blockHash, prevBlockNumber, prevBlockHash)
+	return c.insertIssue(issue)
+}
+
+func (c *DbClient) SaveIssues(issues []*Issue) (*BulkWriteResult, error) {
+	return c.writeIssues(issues)
 }
 
 func (c *DbClient) insertIssue(issue *Issue) error {
@@ -59,4 +75,20 @@ func (c *DbClient) insertIssue(issue *Issue) error {
 		issue,
 	)
 	return err
+}
+
+func (c *DbClient) writeIssues(newIssues []*Issue) (*BulkWriteResult, error) {
+	now := time.Now()
+	docs := []mongo.WriteModel{}
+	for _, issue := range newIssues {
+		issue.BlockNumberHex = "0x" + issue.BlockNumber.Hex()
+		issue.Timestamp = &Timestamp{now}
+		issue.TimeString = now.UTC().Format(time.RFC3339Nano)
+		docs = append(docs, &mongo.InsertOneModel{Document: issue})
+	}
+	result, err := c.Collection(COLLECTION_ISSUES).BulkWrite(
+		context.TODO(),
+		docs,
+	)
+	return newBulkWriteResult(result), err
 }
