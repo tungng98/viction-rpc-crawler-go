@@ -46,10 +46,10 @@ func InitKoanf() (*RootConfig, error) {
 		isPortable = true
 	} else if runtime.GOOS == "linux" || runtime.GOOS == "darwin" {
 		home := os.Getenv("HOME")
-		configFile = path.Join(home, ".config", "vicsrv", cfgName)
+		configFile = path.Join(home, ".config", "vicsvc", cfgName)
 	} else if runtime.GOOS == "windows" {
 		appData := os.Getenv("APPDATA")
-		configFile = path.Join(appData, "VicSrv", cfgName)
+		configFile = path.Join(appData, "VicSvc", cfgName)
 	}
 	var err error
 	cfg, err = BuildConfig(configFile)
@@ -68,6 +68,11 @@ func defaultConfig() *koanf.Koanf {
 
 	k.Load(
 		structs.Provider(RootConfig{
+			Crawler: &CrawlerConfig{
+				BatchSize:   1,
+				WorkerCount: 1,
+				StartBlock:  1,
+			},
 			MongoDB: &MongoDBConfig{
 				Host:     "localhost",
 				Port:     27017,
@@ -86,10 +91,10 @@ func defaultConfig() *koanf.Koanf {
 }
 
 func configFromEnv(k *koanf.Koanf) (*koanf.Koanf, error) {
-	err := k.Load(env.Provider("VICSRV_", ".", func(s string) string {
+	err := k.Load(env.Provider("VICSVC_", ".", func(s string) string {
 		return strings.Replace(
 			strings.ToLower(
-				strings.TrimPrefix(s, "VICSRV_")), "_", ".", -1)
+				strings.TrimPrefix(s, "VICSVC_")), "_", ".", -1)
 	}), nil)
 	if err != nil {
 		return k, err

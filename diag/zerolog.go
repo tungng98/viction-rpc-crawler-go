@@ -12,8 +12,8 @@ import (
 
 func InitZerolog(configDir string) *os.File {
 	consoleWriter := &zerolog.FilteredLevelWriter{
-		Writer: zerolog.LevelWriterAdapter{Writer: zerolog.ConsoleWriter{Out: os.Stdout, NoColor: false, TimeFormat: time.DateTime}},
-		Level:  zerolog.InfoLevel,
+		Writer: zerolog.LevelWriterAdapter{Writer: zerolog.ConsoleWriter{Out: os.Stdout, NoColor: true, TimeFormat: time.DateTime}},
+		Level:  zerolog.DebugLevel,
 	}
 
 	logFile := ""

@@ -35,10 +35,14 @@ func main() {
 		connStr = fmt.Sprintf("mongodb://%s:%d", cfg.MongoDB.Host, cfg.MongoDB.Port)
 	}
 	svc := &svc.IndexBlockTxService{
-		DbConnStr: connStr,
-		DbName:    cfg.MongoDB.Database,
-		RpcUrl:    cfg.Viction.RpcUrl,
-		Logger:    &log.Logger,
+		DbConnStr:   connStr,
+		DbName:      cfg.MongoDB.Database,
+		RpcUrl:      cfg.Viction.RpcUrl,
+		Logger:      &log.Logger,
+		BatchSize:   cfg.Crawler.BatchSize,
+		WorkerCount: cfg.Crawler.WorkerCount,
+		StartBlock:  int64(cfg.Crawler.StartBlock),
+		EndBlock:    int64(cfg.Crawler.EndBlock),
 	}
 	svc.Exec()
 }
