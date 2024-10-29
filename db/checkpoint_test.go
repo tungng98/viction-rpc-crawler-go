@@ -17,7 +17,7 @@ func TestGetHighestBlock(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.Name, func(t *testing.T) {
-			block, err := db.GetHighestBlock()
+			block, err := db.GetHighestIndexBlock()
 			if err != nil {
 				t.Fatalf("Error while getting highest block number. %v", err)
 			}
@@ -33,7 +33,7 @@ func prepareDatabaseForBlocks() *DbClient {
 	if err != nil {
 		panic(err)
 	}
-	err = db.SaveHighestBlock(big.NewInt(17000))
+	err = db.SaveHighestIndexBlock(big.NewInt(17000))
 	if err != nil {
 		panic(err)
 	}

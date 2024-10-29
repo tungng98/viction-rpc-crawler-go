@@ -48,7 +48,7 @@ func InitKoanf() (*RootConfig, error) {
 		home := os.Getenv("HOME")
 		configFile = path.Join(home, ".config", "vicsvc", cfgName)
 	} else if runtime.GOOS == "windows" {
-		appData := os.Getenv("APPDATA")
+		appData := strings.ReplaceAll(os.Getenv("APPDATA"), "\\", "/")
 		configFile = path.Join(appData, "VicSvc", cfgName)
 	}
 	var err error
@@ -68,11 +68,6 @@ func defaultConfig() *koanf.Koanf {
 
 	k.Load(
 		structs.Provider(RootConfig{
-			Crawler: &CrawlerConfig{
-				BatchSize:   1,
-				WorkerCount: 1,
-				StartBlock:  1,
-			},
 			MongoDB: &MongoDBConfig{
 				Host:     "localhost",
 				Port:     27017,

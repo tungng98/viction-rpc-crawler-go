@@ -3,6 +3,7 @@ module viction-rpc-crawler-go
 go 1.21
 
 require (
+	github.com/alexflint/go-arg v1.5.1
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/knadh/koanf/parsers/yaml v0.1.0
 	github.com/knadh/koanf/providers/env v1.0.0
@@ -16,6 +17,7 @@ require (
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
+	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect

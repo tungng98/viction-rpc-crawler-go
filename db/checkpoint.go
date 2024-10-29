@@ -13,18 +13,18 @@ type Checkpoint struct {
 	BlockNumberHex string  `bson:"blockNumberHex"`
 }
 
-func (c *DbClient) GetHighestBlock() (*Checkpoint, error) {
-	return c.findBlockByType("highest")
+func (c *DbClient) GetHighestIndexBlock() (*Checkpoint, error) {
+	return c.findBlockByType("highest_index")
 }
 
-func (c *DbClient) SaveHighestBlock(number *big.Int) error {
-	checkpoint, err := c.GetHighestBlock()
+func (c *DbClient) SaveHighestIndexBlock(number *big.Int) error {
+	checkpoint, err := c.GetHighestIndexBlock()
 	if err != nil {
 		return err
 	}
 	if checkpoint == nil {
 		checkpoint = &Checkpoint{
-			Type:        "highest",
+			Type:        "highest_index",
 			BlockNumber: &BigInt{number},
 		}
 		return c.insertCheckpoint(checkpoint)
@@ -33,7 +33,7 @@ func (c *DbClient) SaveHighestBlock(number *big.Int) error {
 		return nil
 	}
 	checkpoint.BlockNumber = &BigInt{number}
-	return c.updateCheckpointByType("highest", checkpoint)
+	return c.updateCheckpointByType("highest_index", checkpoint)
 }
 
 func (c *DbClient) findBlockByType(typ string) (*Checkpoint, error) {
@@ -48,21 +48,21 @@ func (c *DbClient) findBlockByType(typ string) (*Checkpoint, error) {
 	return doc, err
 }
 
-func (c *DbClient) insertCheckpoint(block *Checkpoint) error {
-	block.BlockNumberHex = "0x" + block.BlockNumber.Hex()
+func (c *DbClient) insertCheckpoint(checkpoint *Checkpoint) error {
+	checkpoint.BlockNumberHex = "0x" + checkpoint.BlockNumber.Hex()
 	_, err := c.Collection(COLLECTION_CHECKPOINTS).InsertOne(
 		context.TODO(),
-		block,
+		checkpoint,
 	)
 	return err
 }
 
-func (c *DbClient) updateCheckpointByType(typ string, block *Checkpoint) error {
-	block.BlockNumberHex = "0x" + block.BlockNumber.Hex()
+func (c *DbClient) updateCheckpointByType(typ string, checkpoint *Checkpoint) error {
+	checkpoint.BlockNumberHex = "0x" + checkpoint.BlockNumber.Hex()
 	_, err := c.Collection(COLLECTION_CHECKPOINTS).UpdateOne(
 		context.TODO(),
 		bson.D{{Key: "type", Value: typ}},
-		bson.D{{Key: "$set", Value: block}},
+		bson.D{{Key: "$set", Value: checkpoint}},
 	)
 	return err
 }

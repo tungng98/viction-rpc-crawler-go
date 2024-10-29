@@ -13,17 +13,19 @@ import (
 )
 
 type IndexBlockTxService struct {
-	DbConnStr   string
-	DbName      string
-	RpcUrl      string
-	StartBlock  int64
-	EndBlock    int64
-	BatchSize   int
-	WorkerCount int
-	Logger      *zerolog.Logger
+	DbConnStr       string
+	DbName          string
+	RpcUrl          string
+	StartBlock      int64
+	EndBlock        int64
+	UseHighestBlock bool
+	BatchSize       int
+	WorkerCount     int
+	Logger          *zerolog.Logger
 }
 
 func (s *IndexBlockTxService) Exec() {
+	s.init()
 	db, err := db.Connect(s.DbConnStr, s.DbName)
 	if err != nil {
 		panic(err)
@@ -44,12 +46,14 @@ func (s *IndexBlockTxService) Exec() {
 		}
 	}
 	startBlock := big.NewInt(s.StartBlock)
-	highestBlock, err := db.GetHighestBlock()
-	if err != nil {
-		panic(err)
-	}
-	if highestBlock != nil {
-		startBlock = highestBlock.BlockNumber.N
+	if s.UseHighestBlock {
+		highestBlock, err := db.GetHighestIndexBlock()
+		if err != nil {
+			panic(err)
+		}
+		if highestBlock != nil {
+			startBlock = highestBlock.BlockNumber.N
+		}
 	}
 	endBlock := big.NewInt(s.EndBlock)
 	for startBlock.Cmp(endBlock) <= 0 {
@@ -83,7 +87,7 @@ func (s *IndexBlockTxService) Exec() {
 		oldStartBlockNumber := startBlock
 		endBlockNumber := new(big.Int).Add(oldStartBlockNumber, big.NewInt(int64(s.BatchSize)-1))
 		startBlock = new(big.Int).Add(startBlock, big.NewInt(int64(len(blocks))))
-		err = db.SaveHighestBlock(startBlock)
+		err = db.SaveHighestIndexBlock(startBlock)
 		if err != nil {
 			panic(err)
 		}
@@ -94,6 +98,15 @@ func (s *IndexBlockTxService) Exec() {
 			Int("ChangedTxsCount", len(batchData.ChangedTxs)).
 			Int("IssuesCount", len(batchData.Issues)).
 			Msgf("Persisted Batch #%d-%d in %v", oldStartBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
+	}
+}
+
+func (s *IndexBlockTxService) init() {
+	if s.WorkerCount == 0 {
+		s.WorkerCount = 1
+	}
+	if s.BatchSize == 0 {
+		s.BatchSize = 1
 	}
 }
 
