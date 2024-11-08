@@ -30,6 +30,46 @@ func TestRcpCallString(t *testing.T) {
 	}
 }
 
+func TestTraceTransaction(t *testing.T) {
+	tests := []struct {
+		hash string
+	}{
+		{"0xf71fb3d6aaa44a631f3b8af92571368f80b7e211a596ac70ddfbc8de197da38e"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.hash, func(t *testing.T) {
+			client, err := Connect(FULL_ARCHIVE_NODE)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = client.TraceTransaction(tt.hash)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
+func TestTraceBlock(t *testing.T) {
+	tests := []struct {
+		number *big.Int
+	}{
+		{big.NewInt(73736810)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.number.String(), func(t *testing.T) {
+			client, err := Connect(FULL_ARCHIVE_NODE)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = client.TraceBlockByNumber(tt.number)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 const FULL_NODE = "http://fullnode.local:10545"
 const FULL_ARCHIVE_NODE = "http://parchivenode.local:10545"
 const PARTIAL_ARCHIVE_NODE = "http://farchivenode.local:10545"
