@@ -60,4 +60,20 @@ func main() {
 		}
 		svc.Exec()
 	}
+	if invokeArgs.ScanBlockForError != nil {
+		traceCfg := invokeArgs.ScanBlockForError
+		svc := &svc.TraceBlockService{
+			DbConnStr:          connStr,
+			DbName:             cfg.MongoDB.Database,
+			RpcUrl:             cfg.Viction.RpcUrl,
+			Logger:             &log.Logger,
+			WorkerCount:        int(traceCfg.WorkerCount),
+			BatchSize:          int(traceCfg.BatchSize),
+			StartBlock:         int64(traceCfg.StartBlock),
+			EndBlock:           int64(traceCfg.EndBlock),
+			UseCheckpointBlock: !traceCfg.NoCheckpoint,
+			SaveDebugData:      !traceCfg.NoSaveTrace,
+		}
+		svc.Exec()
+	}
 }

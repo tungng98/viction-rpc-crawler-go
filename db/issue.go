@@ -51,6 +51,20 @@ func NewDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash str
 	return issue
 }
 
+func (c *DbClient) NewErrorIssue(txHash string, blockHash string, blockNumber *big.Int, err error) *Issue {
+	extras := map[string]interface{}{
+		"error": err.Error(),
+	}
+	issue := &Issue{
+		Type:        "error",
+		TxHash:      txHash,
+		BlockNumber: &BigInt{blockNumber},
+		BlockHash:   blockHash,
+		Extras:      extras,
+	}
+	return issue
+}
+
 func (c *DbClient) SaveDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) error {
 	issue := NewDuplicatedBlockHashIssue(blockHash, blockNumber, prevBlockNumber)
 	return c.insertIssue(issue)
@@ -58,6 +72,11 @@ func (c *DbClient) SaveDuplicatedBlockHashIssue(blockHash string, blockNumber *b
 
 func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) error {
 	issue := NewDuplicatedTxHashIssue(txHash, blockNumber, blockHash, prevBlockNumber, prevBlockHash)
+	return c.insertIssue(issue)
+}
+
+func (c *DbClient) SaveErrorIssue(txHash string, blockHash string, blockNumber *big.Int, err error) error {
+	issue := c.NewErrorIssue(txHash, blockHash, blockNumber, err)
 	return c.insertIssue(issue)
 }
 

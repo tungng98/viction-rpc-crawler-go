@@ -14,8 +14,10 @@ type IndexBlockTxCmd struct {
 }
 
 type ScanBlockForErrorCmd struct {
-	StartBlock  uint64 `arg:"-f,--from" help:"Block number to start the crawling process"`
-	EndBlock    uint64 `arg:"-t,--to" help:"Block number to stop the crawling process"`
-	WorkerCount int32  `arg:"--worker" help:"Number of concurrent routine to fetch blocks from RPC"`
-	Force       bool   `arg:"--force" help:"Ignore the checkpoint number stored in database"`
+	StartBlock   uint64 `arg:"-f,--from" help:"Block number to start the crawling process"`
+	EndBlock     uint64 `arg:"-t,--to" help:"Block number to stop the crawling process"`
+	WorkerCount  int32  `arg:"--worker" help:"Number of concurrent routine to fetch blocks from RPC"`
+	BatchSize    int    `arg:"--batch" help:"Number of blocks to persisted in one write operation"`
+	NoCheckpoint bool   `arg:"--no-cp" help:"Ignore the checkpoint number stored in database"`
+	NoSaveTrace  bool   `arg:"--no-save" help:"Don't save trace result into database"`
 }

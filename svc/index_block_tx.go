@@ -22,6 +22,8 @@ type IndexBlockTxService struct {
 	BatchSize       int
 	WorkerCount     int
 	Logger          *zerolog.Logger
+
+	workers *GetBlockDataQueue
 }
 
 func (s *IndexBlockTxService) Exec() {
@@ -35,14 +37,14 @@ func (s *IndexBlockTxService) Exec() {
 	if err != nil {
 		panic(err)
 	}
-	if workers == nil {
-		workers = &GetBlockDataQueue{
+	if s.workers == nil {
+		s.workers = &GetBlockDataQueue{
 			chanBlockNumbers: make(chan *GetBlockDataItem, s.WorkerCount),
 			client:           rpc,
 			logger:           s.Logger,
 		}
 		for i := 1; i <= s.WorkerCount; i++ {
-			go workers.Start()
+			go s.workers.Start()
 		}
 	}
 	startBlock := big.NewInt(s.StartBlock)
@@ -111,20 +113,20 @@ func (s *IndexBlockTxService) init() {
 }
 
 func (s *IndexBlockTxService) getBlockData(startBlockNumber *big.Int) ([]*types.Block, error) {
-	workers.BlockData = make([]*types.Block, s.BatchSize)
-	workers.ChanCompleteSignal = new(sync.WaitGroup)
-	workers.ChanCompleteSignal.Add(s.BatchSize)
+	s.workers.BlockData = make([]*types.Block, s.BatchSize)
+	s.workers.ChanCompleteSignal = new(sync.WaitGroup)
+	s.workers.ChanCompleteSignal.Add(s.BatchSize)
 	startTime := time.Now()
 	for i := 0; i < s.BatchSize; i++ {
-		workers.Equneue(big.NewInt(startBlockNumber.Int64()+int64(i)), i)
+		s.workers.Equneue(big.NewInt(startBlockNumber.Int64()+int64(i)), i)
 	}
-	workers.ChanCompleteSignal.Wait()
+	s.workers.ChanCompleteSignal.Wait()
 	endBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(s.BatchSize)-1))
 	s.Logger.Info().Msgf("Fetched Batch #%d-%d in %v", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
-	return workers.BlockData, workers.Error
+	return s.workers.BlockData, s.workers.Error
 }
 
-type BatchDataResult struct {
+type IndexBlockBatchDataResult struct {
 	NewBlocks     []*db.BlockHash
 	ChangedBlocks []*db.BlockHash
 	NewTxs        []*db.TxHash
@@ -132,8 +134,8 @@ type BatchDataResult struct {
 	Issues        []*db.Issue
 }
 
-func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types.Block) (*BatchDataResult, error) {
-	result := &BatchDataResult{
+func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types.Block) (*IndexBlockBatchDataResult, error) {
+	result := &IndexBlockBatchDataResult{
 		NewBlocks:     []*db.BlockHash{},
 		ChangedBlocks: []*db.BlockHash{},
 		NewTxs:        []*db.TxHash{},
@@ -238,8 +240,6 @@ func (s *IndexBlockTxService) NewTxHash(block *types.Block, tx *types.Transactio
 		BlockNumber: &db.BigInt{N: block.Number()},
 	}
 }
-
-var workers *GetBlockDataQueue
 
 type GetBlockDataQueue struct {
 	chanBlockNumbers   chan *GetBlockDataItem

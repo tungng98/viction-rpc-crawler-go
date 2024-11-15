@@ -17,6 +17,10 @@ func (c *DbClient) GetHighestIndexBlock() (*Checkpoint, error) {
 	return c.findBlockByType("highest_index")
 }
 
+func (c *DbClient) GetHighestTraceBlock() (*Checkpoint, error) {
+	return c.findBlockByType("highest_trace")
+}
+
 func (c *DbClient) SaveHighestIndexBlock(number *big.Int) error {
 	checkpoint, err := c.GetHighestIndexBlock()
 	if err != nil {
@@ -34,6 +38,25 @@ func (c *DbClient) SaveHighestIndexBlock(number *big.Int) error {
 	}
 	checkpoint.BlockNumber = &BigInt{number}
 	return c.updateCheckpointByType("highest_index", checkpoint)
+}
+
+func (c *DbClient) SaveHighestTraceBlock(number *big.Int) error {
+	checkpoint, err := c.GetHighestTraceBlock()
+	if err != nil {
+		return err
+	}
+	if checkpoint == nil {
+		checkpoint = &Checkpoint{
+			Type:        "highest_trace",
+			BlockNumber: &BigInt{number},
+		}
+		return c.insertCheckpoint(checkpoint)
+	}
+	if checkpoint.BlockNumber.Equals2(number) {
+		return nil
+	}
+	checkpoint.BlockNumber = &BigInt{number}
+	return c.updateCheckpointByType("highest_trace", checkpoint)
 }
 
 func (c *DbClient) findBlockByType(typ string) (*Checkpoint, error) {
