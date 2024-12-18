@@ -2,7 +2,16 @@ package cmd
 
 type Args struct {
 	IndexBlockTx      *IndexBlockTxCmd      `arg:"subcommand:index" help:"Index BlockHashes and TxHashes and stored in MongoDB"`
+	ManageDatabase    *DatabaseCmd          `arg:"subcommand:database" help:""`
 	ScanBlockForError *ScanBlockForErrorCmd `arg:"subcommand:scan" help:"Scan blocks to find problematic BlockHash that caused issue"`
+}
+
+type DatabaseCmd struct {
+	Migrate *DatabaseMigrateCmd `arg:"subcommand:migrate" help:"Pre-populate tables for working this tool"`
+}
+
+type DatabaseMigrateCmd struct {
+	PostgreSQL string `arg:"--pgsql" help:"Connection string to PostgreSQL"`
 }
 
 type IndexBlockTxCmd struct {

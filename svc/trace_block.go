@@ -54,7 +54,7 @@ func (s *TraceBlockService) Exec() {
 			panic(err)
 		}
 		if highestBlock != nil {
-			startBlock = highestBlock.BlockNumber.N
+			startBlock = new(big.Int).SetUint64(highestBlock.BlockNumber)
 		}
 	}
 	endBlock := big.NewInt(s.EndBlock)

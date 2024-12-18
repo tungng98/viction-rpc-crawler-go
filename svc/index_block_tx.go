@@ -14,7 +14,6 @@ import (
 
 type IndexBlockTxService struct {
 	DbConnStr       string
-	DbName          string
 	RpcUrl          string
 	StartBlock      int64
 	EndBlock        int64
@@ -28,7 +27,7 @@ type IndexBlockTxService struct {
 
 func (s *IndexBlockTxService) Exec() {
 	s.init()
-	db, err := db.Connect(s.DbConnStr, s.DbName)
+	db, err := db.Connect(s.DbConnStr, "")
 	if err != nil {
 		panic(err)
 	}
@@ -54,7 +53,7 @@ func (s *IndexBlockTxService) Exec() {
 			panic(err)
 		}
 		if highestBlock != nil {
-			startBlock = highestBlock.BlockNumber.N
+			startBlock = new(big.Int).SetUint64(highestBlock.BlockNumber)
 		}
 	}
 	endBlock := big.NewInt(s.EndBlock)

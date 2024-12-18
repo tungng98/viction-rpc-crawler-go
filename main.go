@@ -7,6 +7,7 @@ import (
 	"strings"
 	"viction-rpc-crawler-go/cmd"
 	"viction-rpc-crawler-go/cmd/config"
+	"viction-rpc-crawler-go/db"
 	"viction-rpc-crawler-go/diag"
 	"viction-rpc-crawler-go/svc"
 
@@ -49,7 +50,6 @@ func main() {
 		indexCfg := invokeArgs.IndexBlockTx
 		svc := &svc.IndexBlockTxService{
 			DbConnStr:       connStr,
-			DbName:          cfg.MongoDB.Database,
 			RpcUrl:          cfg.Viction.RpcUrl,
 			Logger:          &log.Logger,
 			BatchSize:       int(indexCfg.BatchSize),
@@ -75,5 +75,16 @@ func main() {
 			SaveDebugData:      !traceCfg.NoSaveTrace,
 		}
 		svc.Exec()
+	}
+	if invokeArgs.ManageDatabase != nil {
+		subArgs := invokeArgs.ManageDatabase
+		if subArgs.Migrate != nil {
+			c, err := db.Connect(subArgs.Migrate.PostgreSQL, "")
+			if err != nil {
+				log.Error().Err(err).Msg("Cannot connect to database")
+				return
+			}
+			c.Migrate()
+		}
 	}
 }

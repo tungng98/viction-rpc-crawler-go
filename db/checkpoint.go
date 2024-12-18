@@ -1,24 +1,26 @@
 package db
 
 import (
-	"context"
 	"math/big"
+)
 
-	"go.mongodb.org/mongo-driver/bson"
+const (
+	INDEX_CHECKPOINT = iota
+	TRACE_CHECKPOINT
 )
 
 type Checkpoint struct {
-	Type           string  `bson:"type"`
-	BlockNumber    *BigInt `bson:"blockNumber"`
-	BlockNumberHex string  `bson:"blockNumberHex"`
+	ID          uint64 `gorm:"column:id;primaryKey;autoIncrement"`
+	Type        uint16 `gorm:"column:type"`
+	BlockNumber uint64 `gorm:"column:block_number"`
 }
 
 func (c *DbClient) GetHighestIndexBlock() (*Checkpoint, error) {
-	return c.findBlockByType("highest_index")
+	return c.findBlockByType(INDEX_CHECKPOINT)
 }
 
 func (c *DbClient) GetHighestTraceBlock() (*Checkpoint, error) {
-	return c.findBlockByType("highest_trace")
+	return c.findBlockByType(TRACE_CHECKPOINT)
 }
 
 func (c *DbClient) SaveHighestIndexBlock(number *big.Int) error {
@@ -28,16 +30,16 @@ func (c *DbClient) SaveHighestIndexBlock(number *big.Int) error {
 	}
 	if checkpoint == nil {
 		checkpoint = &Checkpoint{
-			Type:        "highest_index",
-			BlockNumber: &BigInt{number},
+			Type:        INDEX_CHECKPOINT,
+			BlockNumber: number.Uint64(),
 		}
 		return c.insertCheckpoint(checkpoint)
 	}
-	if checkpoint.BlockNumber.Equals2(number) {
+	if checkpoint.BlockNumber == number.Uint64() {
 		return nil
 	}
-	checkpoint.BlockNumber = &BigInt{number}
-	return c.updateCheckpointByType("highest_index", checkpoint)
+	checkpoint.BlockNumber = number.Uint64()
+	return c.updateCheckpointByType(INDEX_CHECKPOINT, checkpoint)
 }
 
 func (c *DbClient) SaveHighestTraceBlock(number *big.Int) error {
@@ -47,45 +49,37 @@ func (c *DbClient) SaveHighestTraceBlock(number *big.Int) error {
 	}
 	if checkpoint == nil {
 		checkpoint = &Checkpoint{
-			Type:        "highest_trace",
-			BlockNumber: &BigInt{number},
+			Type:        TRACE_CHECKPOINT,
+			BlockNumber: number.Uint64(),
 		}
 		return c.insertCheckpoint(checkpoint)
 	}
-	if checkpoint.BlockNumber.Equals2(number) {
+	if checkpoint.BlockNumber == number.Uint64() {
 		return nil
 	}
-	checkpoint.BlockNumber = &BigInt{number}
-	return c.updateCheckpointByType("highest_trace", checkpoint)
+	checkpoint.BlockNumber = number.Uint64()
+	return c.updateCheckpointByType(TRACE_CHECKPOINT, checkpoint)
 }
 
-func (c *DbClient) findBlockByType(typ string) (*Checkpoint, error) {
+func (c *DbClient) findBlockByType(typ uint16) (*Checkpoint, error) {
 	var doc *Checkpoint
-	err := c.Collection(COLLECTION_CHECKPOINTS).FindOne(
-		context.TODO(),
-		bson.D{{Key: "type", Value: typ}},
-	).Decode(&doc)
-	if c.isEmptyResultError(err) {
+	result := c.d.Model(&Checkpoint{}).Where("type = ?", typ).First(&doc)
+	if c.isEmptyResultError(result.Error) {
 		return nil, nil
 	}
-	return doc, err
+	return doc, result.Error
 }
 
 func (c *DbClient) insertCheckpoint(checkpoint *Checkpoint) error {
-	checkpoint.BlockNumberHex = "0x" + checkpoint.BlockNumber.Hex()
-	_, err := c.Collection(COLLECTION_CHECKPOINTS).InsertOne(
-		context.TODO(),
-		checkpoint,
-	)
-	return err
+	result := c.d.Model(&Checkpoint{}).Create(&checkpoint).Commit()
+	return result.Error
 }
 
-func (c *DbClient) updateCheckpointByType(typ string, checkpoint *Checkpoint) error {
-	checkpoint.BlockNumberHex = "0x" + checkpoint.BlockNumber.Hex()
-	_, err := c.Collection(COLLECTION_CHECKPOINTS).UpdateOne(
-		context.TODO(),
-		bson.D{{Key: "type", Value: typ}},
-		bson.D{{Key: "$set", Value: checkpoint}},
-	)
-	return err
+func (c *DbClient) updateCheckpointByType(typ uint16, checkpoint *Checkpoint) error {
+	result := c.d.Model(&Checkpoint{}).
+		Where("type = ?", typ).
+		Updates(map[string]interface{}{
+			"block_number": checkpoint.BlockNumber,
+		})
+	return result.Error
 }
