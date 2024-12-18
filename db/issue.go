@@ -17,17 +17,18 @@ const (
 )
 
 type Issue struct {
-	ID        []byte `gorm:"column:id;primaryKey"`
+	ID        uint64 `gorm:"column:id;primaryKey;autoIncrement"`
 	Type      uint16 `gorm:"column:type"`
 	BlockHash []byte `gorm:"column:block_hash"`
 	TxHash    []byte `gorm:"column:tx_hash"`
 	Timestamp int64  `gorm:"column:timestamp"`
 	Status    bool   `gorm:"column:status"`
+	Hash      []byte `gorm:"column:hash;unique"`
 
 	Extras map[string]interface{} `gorm:"column:extras;serializer:json"`
 }
 
-func (i *Issue) GenerateID() {
+func (i *Issue) Checksum() {
 	typeBytes := make([]byte, 4)
 	binary.BigEndian.PutUint16(typeBytes, i.Type)
 	extraBytes, _ := json.Marshal(i.Extras)
@@ -36,7 +37,7 @@ func (i *Issue) GenerateID() {
 	issueBytes = append(issueBytes, i.TxHash...)
 	issueBytes = append(issueBytes, extraBytes...)
 	hashBytes := sha256.Sum256(issueBytes)
-	i.ID = hashBytes[:]
+	i.Hash = hashBytes[:]
 }
 
 func NewDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) *Issue {
@@ -99,7 +100,7 @@ func (c *DbClient) SaveIssues(issues []*Issue) (*BulkWriteResult, error) {
 
 func (c *DbClient) insertIssue(issue *Issue) error {
 	now := time.Now().UnixMicro()
-	issue.GenerateID()
+	issue.Checksum()
 	issue.Timestamp = now
 	result := c.d.Create(issue)
 	return result.Error
@@ -108,7 +109,7 @@ func (c *DbClient) insertIssue(issue *Issue) error {
 func (c *DbClient) writeIssues(newIssues []*Issue) (*BulkWriteResult, error) {
 	now := time.Now().UnixMicro()
 	for _, issue := range newIssues {
-		issue.GenerateID()
+		issue.Checksum()
 		issue.Timestamp = now
 	}
 	result := c.d.CreateInBatches(newIssues, len(newIssues))
