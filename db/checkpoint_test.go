@@ -29,7 +29,7 @@ func TestGetHighestBlock(t *testing.T) {
 }
 
 func prepareDatabaseForBlocks() *DbClient {
-	db, err := Connect("postgres://test:123456@localhost:5432/viction_test", "")
+	db, err := Connect(TEST_CONNECTION, "")
 	if err != nil {
 		panic(err)
 	}

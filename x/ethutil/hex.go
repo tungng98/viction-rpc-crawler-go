@@ -13,7 +13,7 @@ func BigIntToHex(i *big.Int) string {
 func HexToBytes(s string) []byte {
 	ss := s
 	if strings.HasPrefix(s, "0x") {
-		ss = strings.TrimSuffix(s, "0x")
+		ss = strings.TrimPrefix(s, "0x")
 	}
 	bytes, err := hex.DecodeString(ss)
 	if err != nil {

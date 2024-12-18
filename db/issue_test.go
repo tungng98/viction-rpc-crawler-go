@@ -23,11 +23,28 @@ func TestInsertIssue(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Error while getting saving issue. %v", err)
 		}
+		_, err = db.SaveIssues([]*Issue{
+			NewDuplicatedTxHashIssue(
+				ethutil.RandomTxHash(),
+				new(big.Int).SetUint64(ethutil.RandomNumber(0, ^uint64(0))),
+				ethutil.RandomBlockHash(),
+				new(big.Int).SetUint64(ethutil.RandomNumber(0, ^uint64(0))),
+				ethutil.RandomBlockHash(),
+			),
+			NewDuplicatedBlockHashIssue(
+				ethutil.RandomTxHash(),
+				new(big.Int).SetUint64(ethutil.RandomNumber(0, ^uint64(0))),
+				new(big.Int).SetUint64(ethutil.RandomNumber(0, ^uint64(0))),
+			),
+		})
+		if err != nil {
+			t.Fatalf("Error while getting saving issue. %v", err)
+		}
 	})
 }
 
 func prepareDatabaseForIssues() *DbClient {
-	db, err := Connect("mongodb://localhost:27017", "viction_test")
+	db, err := Connect(TEST_CONNECTION, "")
 	if err != nil {
 		panic(err)
 	}

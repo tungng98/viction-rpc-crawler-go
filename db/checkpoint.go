@@ -63,7 +63,9 @@ func (c *DbClient) SaveHighestTraceBlock(number *big.Int) error {
 
 func (c *DbClient) findBlockByType(typ uint16) (*Checkpoint, error) {
 	var doc *Checkpoint
-	result := c.d.Model(&Checkpoint{}).Where("type = ?", typ).First(&doc)
+	result := c.d.Model(&Checkpoint{}).
+		Where("type = ?", typ).
+		First(&doc)
 	if c.isEmptyResultError(result.Error) {
 		return nil, nil
 	}
@@ -71,7 +73,7 @@ func (c *DbClient) findBlockByType(typ uint16) (*Checkpoint, error) {
 }
 
 func (c *DbClient) insertCheckpoint(checkpoint *Checkpoint) error {
-	result := c.d.Model(&Checkpoint{}).Create(&checkpoint).Commit()
+	result := c.d.Create(checkpoint)
 	return result.Error
 }
 

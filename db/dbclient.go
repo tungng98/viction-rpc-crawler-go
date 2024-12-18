@@ -8,9 +8,8 @@ import (
 
 const (
 	COLLECTION_BLOCK_HASHES = "blockHashes"
-	COLLECTION_CHECKPOINTS  = "checkpoints"
-	COLLECTION_ISSUES       = "issues"
 	COLLECTION_TX_HASHES    = "txHashes"
+	TEST_CONNECTION         = "postgresql://test:123456@localhost:5432/viction_test"
 )
 
 type DbClient struct {
@@ -39,9 +38,12 @@ func (c *DbClient) Migrate() {
 }
 
 func (c *DbClient) isEmptyResultError(err error) bool {
-	return err != nil &&
-		(err.Error() == "mongo: no documents in result" ||
-			err.Error() == "record not found")
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return errStr == "mongo: no documents in result" ||
+		errStr == "record not found"
 }
 
 type BulkWriteResult struct {
