@@ -13,6 +13,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/gurukami/typ"
 	"github.com/rs/zerolog"
+	"github.com/shopspring/decimal"
 )
 
 var SYSTEM_ADDRESSES = []string{
@@ -275,10 +276,10 @@ func (s *IndexBlockTxService) copyTransactionProperties(ethTransaction *types.Tr
 	dbTransaction.TransactionIndex = 0
 	dbTransaction.From = hex.EncodeToString(from.Bytes())
 	dbTransaction.To = hex.EncodeToString(ethTransaction.To().Bytes())
-	dbTransaction.Value = ethTransaction.Value().Uint64()
+	dbTransaction.Value = decimal.NewFromBigInt(ethTransaction.Value(), 0)
 	dbTransaction.Nonce = ethTransaction.Nonce()
 	dbTransaction.Gas = ethTransaction.Gas()
-	dbTransaction.GasPrice = ethTransaction.GasPrice().Uint64()
+	dbTransaction.GasPrice = decimal.NewFromBigInt(ethTransaction.GasPrice(), 0)
 }
 
 type GetBlockDataQueue struct {

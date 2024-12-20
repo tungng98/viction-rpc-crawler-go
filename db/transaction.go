@@ -2,20 +2,22 @@ package db
 
 import (
 	"math/big"
+
+	"github.com/shopspring/decimal"
 )
 
 type Transaction struct {
-	ID               uint64 `gorm:"column:id;primaryKey;autoIncrement"`
-	Hash             string `gorm:"column:hash;length:32;uniqueIndex"`
-	BlockID          uint64 `gorm:"column:block_id;index"`
-	BlockHash        string `gorm:"column:block_hash;length:32;index"`
-	TransactionIndex uint16 `gorm:"column:transaction_index"`
-	From             string `gorm:"column:from;length:20"`
-	To               string `gorm:"column:to;length:20"`
-	Value            uint64 `gorm:"column:value"`
-	Nonce            uint64 `gorm:"column:nonce"`
-	Gas              uint64 `gorm:"column:gas"`
-	GasPrice         uint64 `gorm:"column:gas_price"`
+	ID               uint64          `gorm:"column:id;primaryKey;autoIncrement"`
+	Hash             string          `gorm:"column:hash;length:32;uniqueIndex"`
+	BlockID          uint64          `gorm:"column:block_id;index"`
+	BlockHash        string          `gorm:"column:block_hash;length:32;index"`
+	TransactionIndex uint16          `gorm:"column:transaction_index"`
+	From             string          `gorm:"column:from;length:20"`
+	To               string          `gorm:"column:to;length:20"`
+	Value            decimal.Decimal `gorm:"column:value;type:decimal(78,0)"`
+	Nonce            uint64          `gorm:"column:nonce"`
+	Gas              uint64          `gorm:"column:gas"`
+	GasPrice         decimal.Decimal `gorm:"column:gas_price;type:decimal(78,0)"`
 }
 
 func NewTransaction(hash string, blockNumber *big.Int, blockHash string, transactionIndex uint16, from, to string, value *big.Int, nonce uint64, gas uint64, gasPrice *big.Int) *Transaction {
@@ -26,10 +28,10 @@ func NewTransaction(hash string, blockNumber *big.Int, blockHash string, transac
 		TransactionIndex: transactionIndex,
 		From:             from,
 		To:               to,
-		Value:            value.Uint64(),
+		Value:            decimal.NewFromBigInt(value, 0),
 		Nonce:            nonce,
 		Gas:              gas,
-		GasPrice:         gasPrice.Uint64(),
+		GasPrice:         decimal.NewFromBigInt(gasPrice, 0),
 	}
 }
 
