@@ -68,16 +68,10 @@ func defaultConfig() *koanf.Koanf {
 
 	k.Load(
 		structs.Provider(RootConfig{
-			MongoDB: &MongoDBConfig{
-				Host:     "localhost",
-				Port:     27017,
-				Username: "",
-				Password: "",
-				Database: "viction",
-			},
-			Viction: &VictionConfig{
+			Blockchain: &BlockchainConfig{
 				RpcUrl: "http://localhost:8545",
 			},
+			Database: &DatabaseConfig{},
 		}, "koanf"),
 		nil,
 	)

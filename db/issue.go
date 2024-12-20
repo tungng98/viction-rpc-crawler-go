@@ -1,113 +1,121 @@
 package db
 
 import (
-	"context"
-	"math/big"
+	"crypto/sha256"
+	"encoding/binary"
+	"encoding/hex"
+	"encoding/json"
 	"time"
+	"viction-rpc-crawler-go/x/ethutil"
+)
 
-	"go.mongodb.org/mongo-driver/mongo"
+const (
+	ERROR_ISSUE uint16 = iota
+	REORG_BLOCK_ISSUE
+	DUPLICATED_TX_HASH_ISSUE
 )
 
 type Issue struct {
-	Type           string     `bson:"type"`
-	TxHash         string     `bson:"txHash"`
-	BlockNumber    *BigInt    `bson:"blockNumber"`
-	BlockNumberHex string     `bson:"blockNumberHex"`
-	BlockHash      string     `bson:"blockHash"`
-	Timestamp      *Timestamp `bson:"timestamp"`
-	TimeString     string     `bson:"timestring"`
+	ID          uint64 `gorm:"column:id;primaryKey;autoIncrement"`
+	Type        uint16 `gorm:"column:type"`
+	BlockNumber uint64 `gorm:"column:block_number"`
+	BlockHash   string `gorm:"column:block_hash"`
+	TxHash      string `gorm:"column:tx_hash"`
+	Timestamp   int64  `gorm:"column:timestamp"`
+	Status      bool   `gorm:"column:status"`
+	Hash        string `gorm:"column:hash;unique"`
 
-	Extras map[string]interface{} `bson:"extras"`
+	Extras map[string]interface{} `gorm:"column:extras;serializer:json"`
 }
 
-func NewDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) *Issue {
-	extras := map[string]interface{}{
-		"prevBlockNumber":    &BigInt{prevBlockNumber},
-		"prevBlockNumberHex": "0x" + (&BigInt{prevBlockNumber}).Hex(),
-	}
-	issue := &Issue{
-		Type:        "duplicated_block_hash",
-		TxHash:      "",
-		BlockNumber: &BigInt{blockNumber},
-		BlockHash:   blockHash,
-		Extras:      extras,
-	}
-	return issue
+func (i *Issue) Checksum() {
+	typeBytes := make([]byte, 4)
+	binary.BigEndian.PutUint16(typeBytes, i.Type)
+	extraBytes, _ := json.Marshal(i.Extras)
+	issueBytes := typeBytes
+	issueBytes = append(issueBytes, ethutil.HexToBytes(i.BlockHash)...)
+	issueBytes = append(issueBytes, ethutil.HexToBytes(i.TxHash)...)
+	issueBytes = append(issueBytes, extraBytes...)
+	hashBytes := sha256.Sum256(issueBytes)
+	i.Hash = hex.EncodeToString(hashBytes[:])
 }
 
-func NewDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) *Issue {
-	extras := map[string]interface{}{
-		"prevBlockNumber":    &BigInt{prevBlockNumber},
-		"prevBlockNumberHex": "0x" + (&BigInt{prevBlockNumber}).Hex(),
-		"prevBlockHash":      prevBlockHash,
-	}
-	issue := &Issue{
-		Type:        "duplicated_tx_hash",
-		TxHash:      txHash,
-		BlockNumber: &BigInt{blockNumber},
-		BlockHash:   blockHash,
-		Extras:      extras,
-	}
-	return issue
-}
-
-func (c *DbClient) NewErrorIssue(txHash string, blockHash string, blockNumber *big.Int, err error) *Issue {
+func (c *DbClient) NewErrorIssue(txHash string, blockNumber uint64, blockHash string, err error) *Issue {
 	extras := map[string]interface{}{
 		"error": err.Error(),
 	}
 	issue := &Issue{
-		Type:        "error",
-		TxHash:      txHash,
-		BlockNumber: &BigInt{blockNumber},
+		Type:        ERROR_ISSUE,
+		BlockNumber: blockNumber,
 		BlockHash:   blockHash,
+		TxHash:      txHash,
 		Extras:      extras,
 	}
 	return issue
 }
 
-func (c *DbClient) SaveDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) error {
-	issue := NewDuplicatedBlockHashIssue(blockHash, blockNumber, prevBlockNumber)
+func NewReorgBlockIssue(blockNumber uint64, blockHash, prevBlockHash string) *Issue {
+	extras := map[string]interface{}{
+		"prev_block_hash": prevBlockHash,
+	}
+	issue := &Issue{
+		Type:        REORG_BLOCK_ISSUE,
+		BlockNumber: blockNumber,
+		BlockHash:   blockHash,
+		TxHash:      "",
+		Extras:      extras,
+	}
+	return issue
+}
+
+func NewDuplicatedTxHashIssue(txHash string, blockNumber uint64, blockHash string, prevBlockNumber uint64, prevBlockHash string) *Issue {
+	extras := map[string]interface{}{
+		"prev_block_number": prevBlockNumber,
+		"prev_block_hash":   prevBlockHash,
+	}
+	issue := &Issue{
+		Type:        DUPLICATED_TX_HASH_ISSUE,
+		BlockNumber: blockNumber,
+		BlockHash:   blockHash,
+		TxHash:      txHash,
+		Extras:      extras,
+	}
+	return issue
+}
+
+func (c *DbClient) SaveErrorIssue(txHash string, blockNumber uint64, blockHash string, err error) error {
+	issue := c.NewErrorIssue(txHash, blockNumber, blockHash, err)
 	return c.insertIssue(issue)
 }
 
-func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) error {
+func (c *DbClient) SaveReorgBlockIssue(blockNumber uint64, blockHash, prevBlockHash string) error {
+	issue := NewReorgBlockIssue(blockNumber, blockHash, prevBlockHash)
+	return c.insertIssue(issue)
+}
+
+func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber uint64, blockHash string, prevBlockNumber uint64, prevBlockHash string) error {
 	issue := NewDuplicatedTxHashIssue(txHash, blockNumber, blockHash, prevBlockNumber, prevBlockHash)
 	return c.insertIssue(issue)
 }
 
-func (c *DbClient) SaveErrorIssue(txHash string, blockHash string, blockNumber *big.Int, err error) error {
-	issue := c.NewErrorIssue(txHash, blockHash, blockNumber, err)
-	return c.insertIssue(issue)
-}
-
-func (c *DbClient) SaveIssues(issues []*Issue) (*BulkWriteResult, error) {
+func (c *DbClient) SaveIssues(issues []*Issue) error {
 	return c.writeIssues(issues)
 }
 
 func (c *DbClient) insertIssue(issue *Issue) error {
-	now := time.Now()
-	issue.BlockNumberHex = "0x" + issue.BlockNumber.Hex()
-	issue.Timestamp = &Timestamp{now}
-	issue.TimeString = now.UTC().Format(time.RFC3339Nano)
-	_, err := c.Collection(COLLECTION_ISSUES).InsertOne(
-		context.TODO(),
-		issue,
-	)
-	return err
+	now := time.Now().UnixMicro()
+	issue.Checksum()
+	issue.Timestamp = now
+	result := c.d.Create(issue)
+	return result.Error
 }
 
-func (c *DbClient) writeIssues(newIssues []*Issue) (*BulkWriteResult, error) {
-	now := time.Now()
-	docs := []mongo.WriteModel{}
+func (c *DbClient) writeIssues(newIssues []*Issue) error {
+	now := time.Now().UnixMicro()
 	for _, issue := range newIssues {
-		issue.BlockNumberHex = "0x" + issue.BlockNumber.Hex()
-		issue.Timestamp = &Timestamp{now}
-		issue.TimeString = now.UTC().Format(time.RFC3339Nano)
-		docs = append(docs, &mongo.InsertOneModel{Document: issue})
+		issue.Checksum()
+		issue.Timestamp = now
 	}
-	result, err := c.Collection(COLLECTION_ISSUES).BulkWrite(
-		context.TODO(),
-		docs,
-	)
-	return newBulkWriteResult(result), err
+	result := c.d.CreateInBatches(newIssues, len(newIssues))
+	return result.Error
 }

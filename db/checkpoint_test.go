@@ -21,15 +21,15 @@ func TestGetHighestBlock(t *testing.T) {
 			if err != nil {
 				t.Fatalf("Error while getting highest block number. %v", err)
 			}
-			if !block.BlockNumber.Equals2(tt.Number) {
-				t.Fatalf("Highest block number mismatch. Expected '%s' Actual '%s'", tt.Number.String(), block.BlockNumber.String())
+			if block.BlockNumber != tt.Number.Uint64() {
+				t.Fatalf("Highest block number mismatch. Expected '%s' Actual '%d'", tt.Number.String(), block.BlockNumber)
 			}
 		})
 	}
 }
 
 func prepareDatabaseForBlocks() *DbClient {
-	db, err := Connect("mongodb://localhost:27017", "viction_test")
+	db, err := Connect(TEST_CONNECTION, "")
 	if err != nil {
 		panic(err)
 	}

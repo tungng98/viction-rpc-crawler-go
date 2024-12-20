@@ -1,12 +1,12 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 	"viction-rpc-crawler-go/cmd"
 	"viction-rpc-crawler-go/cmd/config"
+	"viction-rpc-crawler-go/db"
 	"viction-rpc-crawler-go/diag"
 	"viction-rpc-crawler-go/svc"
 
@@ -40,17 +40,18 @@ func main() {
 	if cfgErr != nil {
 		panic(cfgErr)
 	}
-	connStr := fmt.Sprintf("mongodb://%s:%s@%s:%d/?authSource=%s", cfg.MongoDB.Username, cfg.MongoDB.Password, cfg.MongoDB.Host, cfg.MongoDB.Port, cfg.MongoDB.Database)
-	if cfg.MongoDB.Username == "" || cfg.MongoDB.Password == "" {
-		connStr = fmt.Sprintf("mongodb://%s:%d", cfg.MongoDB.Host, cfg.MongoDB.Port)
-	}
 
 	if invokeArgs.IndexBlockTx != nil {
 		indexCfg := invokeArgs.IndexBlockTx
+		if indexCfg.RpcUrl != "" {
+			cfg.Blockchain.RpcUrl = indexCfg.RpcUrl
+		}
+		if indexCfg.PostgreSQL != "" {
+			cfg.Database.PostgreSQL = indexCfg.PostgreSQL
+		}
 		svc := &svc.IndexBlockTxService{
-			DbConnStr:       connStr,
-			DbName:          cfg.MongoDB.Database,
-			RpcUrl:          cfg.Viction.RpcUrl,
+			DbConnStr:       cfg.Database.PostgreSQL,
+			RpcUrl:          cfg.Blockchain.RpcUrl,
 			Logger:          &log.Logger,
 			BatchSize:       int(indexCfg.BatchSize),
 			WorkerCount:     int(indexCfg.WorkerCount),
@@ -60,20 +61,23 @@ func main() {
 		}
 		svc.Exec()
 	}
-	if invokeArgs.ScanBlockForError != nil {
-		traceCfg := invokeArgs.ScanBlockForError
-		svc := &svc.TraceBlockService{
-			DbConnStr:          connStr,
-			DbName:             cfg.MongoDB.Database,
-			RpcUrl:             cfg.Viction.RpcUrl,
-			Logger:             &log.Logger,
-			WorkerCount:        int(traceCfg.WorkerCount),
-			BatchSize:          int(traceCfg.BatchSize),
-			StartBlock:         int64(traceCfg.StartBlock),
-			EndBlock:           int64(traceCfg.EndBlock),
-			UseCheckpointBlock: !traceCfg.NoCheckpoint,
-			SaveDebugData:      !traceCfg.NoSaveTrace,
+	if invokeArgs.ManageDatabase != nil {
+		subArgs := invokeArgs.ManageDatabase
+		if subArgs.Migrate.PostgreSQL != "" {
+			cfg.Database.PostgreSQL = subArgs.Migrate.PostgreSQL
 		}
-		svc.Exec()
+		if subArgs.Migrate != nil {
+			c, err := db.Connect(cfg.Database.PostgreSQL, "")
+			if err != nil {
+				log.Error().Err(err).Msg("Cannot connect to database")
+				return
+			}
+			err = c.Migrate()
+			if err != nil {
+				log.Error().Err(err).Msg("Error while migrating database")
+				return
+			}
+			log.Info().Msg("Migration successful!")
+		}
 	}
 }

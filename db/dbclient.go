@@ -1,30 +1,29 @@
 package db
 
 import (
-	"context"
-
 	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 )
 
 const (
 	COLLECTION_BLOCK_HASHES = "blockHashes"
-	COLLECTION_CHECKPOINTS  = "checkpoints"
-	COLLECTION_ISSUES       = "issues"
 	COLLECTION_TX_HASHES    = "txHashes"
+	TEST_CONNECTION         = "postgresql://test:123456@localhost:5432/viction_test"
 )
 
 type DbClient struct {
 	c  *mongo.Client
+	d  *gorm.DB
 	db string
 }
 
 func Connect(uri string, database string) (*DbClient, error) {
-	client, err := mongo.Connect(context.TODO(), options.Client().ApplyURI(uri))
+	db, err := gorm.Open(postgres.Open(uri), &gorm.Config{})
 	if err != nil {
 		return nil, err
 	}
-	return &DbClient{client, database}, nil
+	return &DbClient{nil, db, database}, nil
 }
 
 func (c *DbClient) Collection(collection string) *mongo.Collection {
@@ -32,11 +31,19 @@ func (c *DbClient) Collection(collection string) *mongo.Collection {
 }
 
 func (c *DbClient) Disconnect() {
-	c.c.Disconnect(context.TODO())
+}
+
+func (c *DbClient) Migrate() error {
+	return c.d.AutoMigrate(&Block{}, &Checkpoint{}, &Issue{}, &Transaction{})
 }
 
 func (c *DbClient) isEmptyResultError(err error) bool {
-	return err != nil && err.Error() == "mongo: no documents in result"
+	if err == nil {
+		return false
+	}
+	errStr := err.Error()
+	return errStr == "mongo: no documents in result" ||
+		errStr == "record not found"
 }
 
 type BulkWriteResult struct {
