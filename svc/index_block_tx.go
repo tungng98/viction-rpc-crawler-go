@@ -11,8 +11,8 @@ import (
 	"viction-rpc-crawler-go/rpc"
 
 	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/gurukami/typ"
 	"github.com/rs/zerolog"
-	"github.com/tee8z/nullable"
 )
 
 var SYSTEM_ADDRESSES = []string{
@@ -220,19 +220,19 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 				issues = append(issues, issue)
 			}
 			s.copyBlockProperties(block, cblock)
-			cblock.TransactionCountSystem.Set(&systemTxCount)
+			cblock.TransactionCountSystem.Scan(&systemTxCount)
 		} else if nblock, ok := newBlockMap[blockNumber.Uint64()]; ok {
 			if nblock.Hash != blockHash {
 				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
 				issues = append(issues, issue)
 			}
 			s.copyBlockProperties(block, nblock)
-			nblock.TransactionCountSystem.Set(&systemTxCount)
+			nblock.TransactionCountSystem.Scan(&systemTxCount)
 		} else {
 			nblock := &db.Block{ID: blockNumber.Uint64()}
 			s.copyBlockProperties(block, nblock)
 			newBlockMap[blockNumber.Uint64()] = nblock
-			nblock.TransactionCountSystem.Set(&systemTxCount)
+			nblock.TransactionCountSystem.Scan(&systemTxCount)
 		}
 	}
 	for _, block := range newBlockMap {
@@ -263,9 +263,9 @@ func (s *IndexBlockTxService) copyBlockProperties(ethBlock *types.Block, dbBlock
 	dbBlock.GasUsed = ethBlock.GasUsed()
 	dbBlock.TotalDifficulty = ethBlock.Difficulty().Uint64()
 	dbBlock.TransactionCount = uint16(len(ethBlock.Transactions()))
-	dbBlock.TransactionCountSystem = nullable.NewUint16(nil)
-	dbBlock.TransactionCountDebug = nullable.NewUint16(nil)
-	dbBlock.BlockMintDuration = nullable.NewUint64(nil)
+	dbBlock.TransactionCountSystem = typ.NullUint16{}
+	dbBlock.TransactionCountDebug = typ.NullUint16{}
+	dbBlock.BlockMintDuration = typ.NullUint64{}
 }
 
 func (s *IndexBlockTxService) copyTransactionProperties(ethTransaction *types.Transaction, ethBlock *types.Block, dbTransaction *db.Transaction) {

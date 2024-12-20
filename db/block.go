@@ -3,29 +3,29 @@ package db
 import (
 	"math/big"
 
-	"github.com/tee8z/nullable"
+	"github.com/gurukami/typ"
 )
 
 type Block struct {
-	ID                     uint64          `gorm:"column:id;primaryKey"`
-	Hash                   string          `gorm:"column:hash;length:32;uniqueIndex"`
-	Timestamp              int64           `gorm:"column:timestamp"`
-	Size                   uint16          `gorm:"column:size"`
-	GasLimit               uint64          `gorm:"column:gas_limit"`
-	GasUsed                uint64          `gorm:"column:gas_used"`
-	TotalDifficulty        uint64          `gorm:"column:total_difficulty"`
-	TransactionCount       uint16          `gorm:"column:transaction_count"`
-	TransactionCountSystem nullable.Uint16 `gorm:"column:transaction_count_system"`
-	TransactionCountDebug  nullable.Uint16 `gorm:"column:transaction_count_debug"`
-	BlockMintDuration      nullable.Uint64 `gorm:"column:block_mint_duration"`
-	ParentHash             string          `gorm:"column:parent_hash;length:32"`
-	StateRoot              string          `gorm:"column:state_root;length:32"`
-	TransactionsRoot       string          `gorm:"column:transaction_root;length:32"`
-	ReceiptsRoot           string          `gorm:"column:receipts_root;length:32"`
+	ID                     uint64         `gorm:"column:id;primaryKey"`
+	Hash                   string         `gorm:"column:hash;length:32;uniqueIndex"`
+	Timestamp              int64          `gorm:"column:timestamp"`
+	Size                   uint16         `gorm:"column:size"`
+	GasLimit               uint64         `gorm:"column:gas_limit"`
+	GasUsed                uint64         `gorm:"column:gas_used"`
+	TotalDifficulty        uint64         `gorm:"column:total_difficulty"`
+	TransactionCount       uint16         `gorm:"column:transaction_count"`
+	TransactionCountSystem typ.NullUint16 `gorm:"column:transaction_count_system"`
+	TransactionCountDebug  typ.NullUint16 `gorm:"column:transaction_count_debug"`
+	BlockMintDuration      typ.NullUint64 `gorm:"column:block_mint_duration"`
+	ParentHash             string         `gorm:"column:parent_hash;length:32"`
+	StateRoot              string         `gorm:"column:state_root;length:32"`
+	TransactionsRoot       string         `gorm:"column:transaction_root;length:32"`
+	ReceiptsRoot           string         `gorm:"column:receipts_root;length:32"`
 }
 
 func NewBlock(blockNumber *big.Int, blockHash, parentHash string, stateRoot, transactionRoot, receiptsRoot string, timestamp int64, size uint16, gasLimit, gasUsed uint64, totalDifficult uint64,
-	transactionCount uint16, transactionCountSystem, transactionCountDebug nullable.Uint16, blockMintDuration nullable.Uint64) *Block {
+	transactionCount uint16, transactionCountSystem, transactionCountDebug typ.NullUint16, blockMintDuration typ.NullUint64) *Block {
 	return &Block{
 		ID:                     blockNumber.Uint64(),
 		Hash:                   blockHash,

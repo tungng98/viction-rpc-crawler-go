@@ -7,13 +7,13 @@ toolchain go1.22.7
 require (
 	github.com/alexflint/go-arg v1.5.1
 	github.com/ethereum/go-ethereum v1.10.26
+	github.com/gurukami/typ v1.2.0
 	github.com/knadh/koanf/parsers/yaml v0.1.0
 	github.com/knadh/koanf/providers/env v1.0.0
 	github.com/knadh/koanf/providers/file v1.1.2
 	github.com/knadh/koanf/providers/structs v0.1.0
 	github.com/knadh/koanf/v2 v2.1.1
 	github.com/rs/zerolog v1.33.0
-	github.com/tee8z/nullable v1.0.5
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	gorm.io/driver/postgres v1.5.11
