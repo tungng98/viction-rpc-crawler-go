@@ -192,7 +192,10 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 		systemTxCount := uint16(0)
 		for _, tx := range block.Transactions() {
 			txHash := hex.EncodeToString(tx.Hash().Bytes())
-			toAddress := tx.To().Hex()
+			toAddress := ""
+			if tx.To() != nil {
+				toAddress = tx.To().Hex()
+			}
 			if slices.Contains(SYSTEM_ADDRESSES, toAddress) {
 				systemTxCount += 1
 			}
@@ -275,7 +278,9 @@ func (s *IndexBlockTxService) copyTransactionProperties(ethTransaction *types.Tr
 	dbTransaction.BlockHash = hex.EncodeToString(ethBlock.Hash().Bytes())
 	dbTransaction.TransactionIndex = 0
 	dbTransaction.From = hex.EncodeToString(from.Bytes())
-	dbTransaction.To = hex.EncodeToString(ethTransaction.To().Bytes())
+	if ethTransaction.To() != nil {
+		dbTransaction.To = hex.EncodeToString(ethTransaction.To().Bytes())
+	}
 	dbTransaction.Value = decimal.NewFromBigInt(ethTransaction.Value(), 0)
 	dbTransaction.Nonce = ethTransaction.Nonce()
 	dbTransaction.Gas = ethTransaction.Gas()
