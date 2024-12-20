@@ -8,7 +8,6 @@ import (
 
 	"viction-rpc-crawler-go/db"
 	"viction-rpc-crawler-go/rpc"
-	"viction-rpc-crawler-go/x/ethutil"
 
 	"github.com/ethereum/go-ethereum/core/types"
 	"github.com/rs/zerolog"
@@ -145,13 +144,13 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 		Issues:        []*db.Issue{},
 	}
 
-	blockHashes := [][]byte{}
-	txHashes := [][]byte{}
+	blockHashes := []string{}
+	txHashes := []string{}
 	issues := []*db.Issue{}
 	for _, block := range blocks {
-		blockHashes = append(blockHashes, block.Hash().Bytes())
+		blockHashes = append(blockHashes, hex.EncodeToString(block.Hash().Bytes()))
 		for _, tx := range block.Transactions() {
-			txHashes = append(txHashes, tx.Hash().Bytes())
+			txHashes = append(txHashes, hex.EncodeToString(tx.Hash().Bytes()))
 		}
 	}
 
@@ -171,19 +170,19 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 		changedBlockMap[block.ID] = block
 	}
 	for _, tx := range changedTxs {
-		changedTxMap[hex.EncodeToString(tx.Hash)] = tx
+		changedTxMap[tx.Hash] = tx
 	}
 	for _, block := range blocks {
 		blockNumber := block.Number()
-		blockHash := block.Hash().Bytes()
+		blockHash := hex.EncodeToString(block.Hash().Bytes())
 		if cblock, ok := changedBlockMap[blockNumber.Uint64()]; ok {
-			if !ethutil.BytesEqual(cblock.Hash, blockHash) {
+			if cblock.Hash != blockHash {
 				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
 				issues = append(issues, issue)
 			}
 			s.copyBlockProperties(block, cblock)
 		} else if nblock, ok := newBlockMap[blockNumber.Uint64()]; ok {
-			if !ethutil.BytesEqual(nblock.Hash, blockHash) {
+			if nblock.Hash != blockHash {
 				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
 				issues = append(issues, issue)
 			}
@@ -194,21 +193,21 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 			newBlockMap[blockNumber.Uint64()] = nblock
 		}
 		for _, tx := range block.Transactions() {
-			txHash := tx.Hash().Hex()
+			txHash := hex.EncodeToString(tx.Hash().Bytes())
 			if ctx, ok := changedTxMap[txHash]; ok {
 				if ctx.BlockID != blockNumber.Uint64() {
-					issue := db.NewDuplicatedTxHashIssue(tx.Hash().Bytes(), blockNumber.Uint64(), blockHash, ctx.BlockID, ctx.BlockHash)
+					issue := db.NewDuplicatedTxHashIssue(hex.EncodeToString(tx.Hash().Bytes()), blockNumber.Uint64(), blockHash, ctx.BlockID, ctx.BlockHash)
 					issues = append(issues, issue)
 				}
 				s.copyTransactionProperties(tx, block, ctx)
 			} else if ntx, ok := newTxMap[txHash]; ok {
 				if ntx.BlockID != blockNumber.Uint64() {
-					issue := db.NewDuplicatedTxHashIssue(tx.Hash().Bytes(), blockNumber.Uint64(), blockHash, ntx.BlockID, ntx.BlockHash)
+					issue := db.NewDuplicatedTxHashIssue(hex.EncodeToString(tx.Hash().Bytes()), blockNumber.Uint64(), blockHash, ntx.BlockID, ntx.BlockHash)
 					issues = append(issues, issue)
 				}
 				s.copyTransactionProperties(tx, block, ntx)
 			} else {
-				ntx := &db.Transaction{Hash: tx.Hash().Bytes()}
+				ntx := &db.Transaction{Hash: hex.EncodeToString(tx.Hash().Bytes())}
 				s.copyTransactionProperties(tx, block, ntx)
 				newTxMap[txHash] = ntx
 			}
@@ -231,11 +230,11 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 }
 
 func (s *IndexBlockTxService) copyBlockProperties(ethBlock *types.Block, dbBlock *db.Block) {
-	dbBlock.Hash = ethBlock.Hash().Bytes()
-	dbBlock.ParentHash = ethBlock.ParentHash().Bytes()
-	dbBlock.StateRoot = ethBlock.Root().Bytes()
-	dbBlock.TransactionsRoot = ethBlock.TxHash().Bytes()
-	dbBlock.ReceiptsRoot = ethBlock.ReceiptHash().Bytes()
+	dbBlock.Hash = hex.EncodeToString(ethBlock.Hash().Bytes())
+	dbBlock.ParentHash = hex.EncodeToString(ethBlock.ParentHash().Bytes())
+	dbBlock.StateRoot = hex.EncodeToString(ethBlock.Root().Bytes())
+	dbBlock.TransactionsRoot = hex.EncodeToString(ethBlock.TxHash().Bytes())
+	dbBlock.ReceiptsRoot = hex.EncodeToString(ethBlock.ReceiptHash().Bytes())
 	dbBlock.Timestamp = int64(ethBlock.Header().Time)
 	dbBlock.Size = uint16(ethBlock.Size())
 	dbBlock.GasLimit = ethBlock.GasLimit()
@@ -250,10 +249,10 @@ func (s *IndexBlockTxService) copyBlockProperties(ethBlock *types.Block, dbBlock
 func (s *IndexBlockTxService) copyTransactionProperties(ethTransaction *types.Transaction, ethBlock *types.Block, dbTransaction *db.Transaction) {
 	from, _ := types.Sender(types.NewEIP155Signer(ethTransaction.ChainId()), ethTransaction)
 	dbTransaction.BlockID = ethBlock.Number().Uint64()
-	dbTransaction.BlockHash = ethBlock.Hash().Bytes()
+	dbTransaction.BlockHash = hex.EncodeToString(ethBlock.Hash().Bytes())
 	dbTransaction.TransactionIndex = 0
-	dbTransaction.From = from.Bytes()
-	dbTransaction.To = ethTransaction.To().Bytes()
+	dbTransaction.From = hex.EncodeToString(from.Bytes())
+	dbTransaction.To = hex.EncodeToString(ethTransaction.To().Bytes())
 	dbTransaction.Value = ethTransaction.Value().Uint64()
 	dbTransaction.Nonce = ethTransaction.Nonce()
 	dbTransaction.Gas = ethTransaction.Gas()

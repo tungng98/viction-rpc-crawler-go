@@ -6,19 +6,19 @@ import (
 
 type Transaction struct {
 	ID               uint64 `gorm:"column:id;primaryKey;autoIncrement"`
-	Hash             []byte `gorm:"column:hash;uniqueIndex"`
+	Hash             string `gorm:"column:hash;length:32;uniqueIndex"`
 	BlockID          uint64 `gorm:"column:block_id;index"`
-	BlockHash        []byte `gorm:"column:block_hash;index"`
+	BlockHash        string `gorm:"column:block_hash;length:32;index"`
 	TransactionIndex uint16 `gorm:"column:transaction_index"`
-	From             []byte `gorm:"column:from"`
-	To               []byte `gorm:"column:to"`
+	From             string `gorm:"column:from;length:20"`
+	To               string `gorm:"column:to;length:20"`
 	Value            uint64 `gorm:"column:value"`
 	Nonce            uint64 `gorm:"column:nonce"`
 	Gas              uint64 `gorm:"column:gas"`
 	GasPrice         uint64 `gorm:"column:gas_price"`
 }
 
-func NewTransaction(hash []byte, blockNumber *big.Int, blockHash []byte, transactionIndex uint16, from, to []byte, value *big.Int, nonce uint64, gas uint64, gasPrice *big.Int) *Transaction {
+func NewTransaction(hash string, blockNumber *big.Int, blockHash string, transactionIndex uint16, from, to string, value *big.Int, nonce uint64, gas uint64, gasPrice *big.Int) *Transaction {
 	return &Transaction{
 		Hash:             hash,
 		BlockID:          blockNumber.Uint64(),
@@ -33,15 +33,15 @@ func NewTransaction(hash []byte, blockNumber *big.Int, blockHash []byte, transac
 	}
 }
 
-func (c *DbClient) GetTransaction(hash []byte) (*Transaction, error) {
+func (c *DbClient) GetTransaction(hash string) (*Transaction, error) {
 	return c.findTransactonByHash(hash)
 }
 
-func (c *DbClient) GetTransactions(hashes [][]byte) ([]*Transaction, error) {
+func (c *DbClient) GetTransactions(hashes []string) ([]*Transaction, error) {
 	return c.findTransactonsByHashes(hashes)
 }
 
-func (c *DbClient) SaveTransaction(hash []byte, newTransaction *Transaction) error {
+func (c *DbClient) SaveTransaction(hash string, newTransaction *Transaction) error {
 	transaction, err := c.GetTransaction(hash)
 	if err != nil {
 		return err
@@ -63,7 +63,7 @@ func (c *DbClient) SaveTransactions(newTransactions []*Transaction, changedTrans
 	return c.writeTransactions(newTransactions, changedTransactions)
 }
 
-func (c *DbClient) findTransactonByHash(hash []byte) (*Transaction, error) {
+func (c *DbClient) findTransactonByHash(hash string) (*Transaction, error) {
 	var doc *Transaction
 	result := c.d.Model(&Transaction{}).
 		Where("hash = ?", hash).
@@ -74,7 +74,7 @@ func (c *DbClient) findTransactonByHash(hash []byte) (*Transaction, error) {
 	return doc, result.Error
 }
 
-func (c *DbClient) findTransactonsByHashes(hashes [][]byte) ([]*Transaction, error) {
+func (c *DbClient) findTransactonsByHashes(hashes []string) ([]*Transaction, error) {
 	var docs []*Transaction
 	result := c.d.Model(&Transaction{}).
 		Where("hash IN ?", hashes).
@@ -87,7 +87,7 @@ func (c *DbClient) insertTxHash(transaction *Transaction) error {
 	return result.Error
 }
 
-func (c *DbClient) updateTransactionByHash(hash []byte, transaction *Transaction) error {
+func (c *DbClient) updateTransactionByHash(hash string, transaction *Transaction) error {
 	result := c.d.Model(&Transaction{}).
 		Where("hash = ?", hash).
 		Updates(map[string]interface{}{

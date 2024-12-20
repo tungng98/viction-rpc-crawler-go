@@ -2,18 +2,17 @@ package db
 
 import (
 	"math/big"
-	"viction-rpc-crawler-go/x/ethutil"
 
 	"github.com/tee8z/nullable"
 )
 
 type Block struct {
 	ID                     uint64          `gorm:"column:id;primaryKey"`
-	Hash                   []byte          `gorm:"column:hash;uniqueIndex"`
-	ParentHash             []byte          `gorm:"column:parent_hash"`
-	StateRoot              []byte          `gorm:"column:state_root"`
-	TransactionsRoot       []byte          `gorm:"column:transaction_root"`
-	ReceiptsRoot           []byte          `gorm:"column:receipts_root"`
+	Hash                   string          `gorm:"column:hash;length:32;uniqueIndex"`
+	ParentHash             string          `gorm:"column:parent_hash;length:32"`
+	StateRoot              string          `gorm:"column:state_root;length:32"`
+	TransactionsRoot       string          `gorm:"column:transaction_root;length:32"`
+	ReceiptsRoot           string          `gorm:"column:receipts_root;length:32"`
 	Timestamp              int64           `gorm:"column:timestamp"`
 	Size                   uint16          `gorm:"column:size"`
 	GasLimit               uint64          `gorm:"column:gas_limit"`
@@ -25,7 +24,7 @@ type Block struct {
 	BlockMintDuration      nullable.Uint64 `gorm:"column:block_mint_duration"`
 }
 
-func NewBlock(blockNumber *big.Int, blockHash, parentHash []byte, stateRoot, transactionRoot, receiptsRoot []byte, timestamp int64, size uint16, gasLimit, gasUsed uint64, totalDifficult uint64,
+func NewBlock(blockNumber *big.Int, blockHash, parentHash string, stateRoot, transactionRoot, receiptsRoot string, timestamp int64, size uint16, gasLimit, gasUsed uint64, totalDifficult uint64,
 	transactionCount uint16, transactionCountSystem, transactionCountDebug nullable.Uint16, blockMintDuration nullable.Uint64) *Block {
 	return &Block{
 		ID:                     blockNumber.Uint64(),
@@ -50,11 +49,11 @@ func (c *DbClient) GetBlock(id uint64) (*Block, error) {
 	return c.findBlock(id)
 }
 
-func (c *DbClient) GetBlockByHash(hash []byte) (*Block, error) {
+func (c *DbClient) GetBlockByHash(hash string) (*Block, error) {
 	return c.findBlockByHash(hash)
 }
 
-func (c *DbClient) GetBlocksByHashes(hashes [][]byte) ([]*Block, error) {
+func (c *DbClient) GetBlocksByHashes(hashes []string) ([]*Block, error) {
 	return c.findBlocksByHashes(hashes)
 }
 
@@ -66,7 +65,7 @@ func (c *DbClient) SaveBlock(newBlock *Block) error {
 	if block == nil {
 		return c.insertBlock(newBlock)
 	}
-	if !ethutil.BytesEqual(block.Hash, newBlock.Hash) {
+	if block.Hash != newBlock.Hash {
 		err = c.SaveReorgBlockIssue(newBlock.ID, newBlock.Hash, block.Hash)
 		if err != nil {
 			return err
@@ -90,7 +89,7 @@ func (c *DbClient) findBlock(id uint64) (*Block, error) {
 	return doc, result.Error
 }
 
-func (c *DbClient) findBlockByHash(hash []byte) (*Block, error) {
+func (c *DbClient) findBlockByHash(hash string) (*Block, error) {
 	var doc *Block
 	result := c.d.Model(&Block{}).
 		Where("hash = ?", hash).
@@ -101,7 +100,7 @@ func (c *DbClient) findBlockByHash(hash []byte) (*Block, error) {
 	return doc, result.Error
 }
 
-func (c *DbClient) findBlocksByHashes(hashes [][]byte) ([]*Block, error) {
+func (c *DbClient) findBlocksByHashes(hashes []string) ([]*Block, error) {
 	var docs []*Block
 	result := c.d.Model(&Block{}).
 		Where("hash IN ?", hashes).
