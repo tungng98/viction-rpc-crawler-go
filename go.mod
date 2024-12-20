@@ -14,6 +14,7 @@ require (
 	github.com/knadh/koanf/providers/structs v0.1.0
 	github.com/knadh/koanf/v2 v2.1.1
 	github.com/rs/zerolog v1.33.0
+	github.com/shopspring/decimal v1.4.0
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	gorm.io/driver/postgres v1.5.11
