@@ -3,6 +3,7 @@ package svc
 import (
 	"encoding/hex"
 	"math/big"
+	"slices"
 	"sync"
 	"time"
 
@@ -13,6 +14,15 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/tee8z/nullable"
 )
+
+var SYSTEM_ADDRESSES = []string{
+	"0x0000000000000000000000000000000000000089", // Sign block
+	"0x0000000000000000000000000000000000000090", // Randomize
+	"0x0000000000000000000000000000000000000091", // TomoX
+	"0x0000000000000000000000000000000000000092", // TomoXTradingState
+	"0x0000000000000000000000000000000000000093", // TomoXLending
+	"0x0000000000000000000000000000000000000094", // TomoXFinalLending
+}
 
 type IndexBlockTxService struct {
 	DbConnStr       string
@@ -48,19 +58,23 @@ func (s *IndexBlockTxService) Exec() {
 			go s.workers.Start()
 		}
 	}
-	startBlock := big.NewInt(s.StartBlock)
+	startBlockNumber := big.NewInt(s.StartBlock)
 	if s.UseHighestBlock {
 		highestBlock, err := db.GetHighestIndexBlock()
 		if err != nil {
 			panic(err)
 		}
 		if highestBlock != nil {
-			startBlock = new(big.Int).SetUint64(highestBlock.BlockNumber)
+			startBlockNumber = new(big.Int).SetUint64(highestBlock.BlockNumber)
 		}
 	}
 	endBlock := big.NewInt(s.EndBlock)
-	for startBlock.Cmp(endBlock) <= 0 {
-		blocks, err := s.getBlockData(startBlock)
+	for startBlockNumber.Cmp(endBlock) <= 0 {
+		endBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(s.BatchSize)-1))
+		if endBlockNumber.Cmp(endBlock) > 0 {
+			endBlockNumber.Set(endBlock)
+		}
+		blocks, err := s.getBlockData(startBlockNumber, endBlockNumber)
 		if err != nil {
 			panic(err)
 		}
@@ -87,10 +101,8 @@ func (s *IndexBlockTxService) Exec() {
 				panic(err)
 			}
 		}
-		oldStartBlockNumber := startBlock
-		endBlockNumber := new(big.Int).Add(oldStartBlockNumber, big.NewInt(int64(s.BatchSize)-1))
-		startBlock = new(big.Int).Add(startBlock, big.NewInt(int64(len(blocks))))
-		err = db.SaveHighestIndexBlock(startBlock)
+		nextStartBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(len(blocks))))
+		err = db.SaveHighestIndexBlock(nextStartBlockNumber)
 		if err != nil {
 			panic(err)
 		}
@@ -100,7 +112,8 @@ func (s *IndexBlockTxService) Exec() {
 			Int("NewTxsCount", len(batchData.NewTxs)).
 			Int("ChangedTxsCount", len(batchData.ChangedTxs)).
 			Int("IssuesCount", len(batchData.Issues)).
-			Msgf("Persisted Batch #%d-%d in %v", oldStartBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
+			Msgf("Persisted Batch #%d-%d in %v", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
+		startBlockNumber.Set(nextStartBlockNumber)
 	}
 }
 
@@ -113,16 +126,16 @@ func (s *IndexBlockTxService) init() {
 	}
 }
 
-func (s *IndexBlockTxService) getBlockData(startBlockNumber *big.Int) ([]*types.Block, error) {
-	s.workers.BlockData = make([]*types.Block, s.BatchSize)
+func (s *IndexBlockTxService) getBlockData(startBlockNumber *big.Int, endBlockNumber *big.Int) ([]*types.Block, error) {
+	batchSize := int(new(big.Int).Sub(endBlockNumber, startBlockNumber).Int64() + 1)
+	s.workers.BlockData = make([]*types.Block, batchSize)
 	s.workers.ChanCompleteSignal = new(sync.WaitGroup)
-	s.workers.ChanCompleteSignal.Add(s.BatchSize)
+	s.workers.ChanCompleteSignal.Add(batchSize)
 	startTime := time.Now()
-	for i := 0; i < s.BatchSize; i++ {
-		s.workers.Equneue(big.NewInt(startBlockNumber.Int64()+int64(i)), i)
+	for i := 0; i < batchSize; i++ {
+		s.workers.Equneue(new(big.Int).Add(startBlockNumber, big.NewInt(int64(i))), i)
 	}
 	s.workers.ChanCompleteSignal.Wait()
-	endBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(s.BatchSize)-1))
 	s.Logger.Info().Msgf("Fetched Batch #%d-%d in %v", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
 	return s.workers.BlockData, s.workers.Error
 }
@@ -175,25 +188,13 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 	for _, block := range blocks {
 		blockNumber := block.Number()
 		blockHash := hex.EncodeToString(block.Hash().Bytes())
-		if cblock, ok := changedBlockMap[blockNumber.Uint64()]; ok {
-			if cblock.Hash != blockHash {
-				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
-				issues = append(issues, issue)
-			}
-			s.copyBlockProperties(block, cblock)
-		} else if nblock, ok := newBlockMap[blockNumber.Uint64()]; ok {
-			if nblock.Hash != blockHash {
-				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
-				issues = append(issues, issue)
-			}
-			s.copyBlockProperties(block, nblock)
-		} else {
-			nblock := &db.Block{ID: blockNumber.Uint64()}
-			s.copyBlockProperties(block, nblock)
-			newBlockMap[blockNumber.Uint64()] = nblock
-		}
+		systemTxCount := uint16(0)
 		for _, tx := range block.Transactions() {
 			txHash := hex.EncodeToString(tx.Hash().Bytes())
+			toAddress := tx.To().Hex()
+			if slices.Contains(SYSTEM_ADDRESSES, toAddress) {
+				systemTxCount += 1
+			}
 			if ctx, ok := changedTxMap[txHash]; ok {
 				if ctx.BlockID != blockNumber.Uint64() {
 					issue := db.NewDuplicatedTxHashIssue(hex.EncodeToString(tx.Hash().Bytes()), blockNumber.Uint64(), blockHash, ctx.BlockID, ctx.BlockHash)
@@ -211,6 +212,27 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 				s.copyTransactionProperties(tx, block, ntx)
 				newTxMap[txHash] = ntx
 			}
+		}
+
+		if cblock, ok := changedBlockMap[blockNumber.Uint64()]; ok {
+			if cblock.Hash != blockHash {
+				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
+				issues = append(issues, issue)
+			}
+			s.copyBlockProperties(block, cblock)
+			cblock.TransactionCountSystem.Set(&systemTxCount)
+		} else if nblock, ok := newBlockMap[blockNumber.Uint64()]; ok {
+			if nblock.Hash != blockHash {
+				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
+				issues = append(issues, issue)
+			}
+			s.copyBlockProperties(block, nblock)
+			nblock.TransactionCountSystem.Set(&systemTxCount)
+		} else {
+			nblock := &db.Block{ID: blockNumber.Uint64()}
+			s.copyBlockProperties(block, nblock)
+			newBlockMap[blockNumber.Uint64()] = nblock
+			nblock.TransactionCountSystem.Set(&systemTxCount)
 		}
 	}
 	for _, block := range newBlockMap {
