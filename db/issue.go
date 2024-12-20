@@ -4,26 +4,24 @@ import (
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/json"
-	"math/big"
 	"time"
-
-	"viction-rpc-crawler-go/x/ethutil"
 )
 
 const (
 	ERROR_ISSUE uint16 = iota
-	DUPLICATED_BLOCK_HASH_ISSUE
+	REORG_BLOCK_ISSUE
 	DUPLICATED_TX_HASH_ISSUE
 )
 
 type Issue struct {
-	ID        uint64 `gorm:"column:id;primaryKey;autoIncrement"`
-	Type      uint16 `gorm:"column:type"`
-	BlockHash []byte `gorm:"column:block_hash"`
-	TxHash    []byte `gorm:"column:tx_hash"`
-	Timestamp int64  `gorm:"column:timestamp"`
-	Status    bool   `gorm:"column:status"`
-	Hash      []byte `gorm:"column:hash;unique"`
+	ID          uint64 `gorm:"column:id;primaryKey;autoIncrement"`
+	Type        uint16 `gorm:"column:type"`
+	BlockNumber uint64 `gorm:"column:block_number"`
+	BlockHash   []byte `gorm:"column:block_hash"`
+	TxHash      []byte `gorm:"column:tx_hash"`
+	Timestamp   int64  `gorm:"column:timestamp"`
+	Status      bool   `gorm:"column:status"`
+	Hash        []byte `gorm:"column:hash;unique"`
 
 	Extras map[string]interface{} `gorm:"column:extras;serializer:json"`
 }
@@ -40,61 +38,65 @@ func (i *Issue) Checksum() {
 	i.Hash = hashBytes[:]
 }
 
-func NewDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) *Issue {
-	extras := map[string]interface{}{
-		"prev_block_number": prevBlockNumber.Uint64(),
-	}
-	issue := &Issue{
-		Type:      DUPLICATED_BLOCK_HASH_ISSUE,
-		TxHash:    ethutil.HexToBytes(""),
-		BlockHash: ethutil.HexToBytes(blockHash),
-		Extras:    extras,
-	}
-	return issue
-}
-
-func NewDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) *Issue {
-	extras := map[string]interface{}{
-		"prev_block_number": prevBlockNumber.Uint64(),
-	}
-	issue := &Issue{
-		Type:      DUPLICATED_TX_HASH_ISSUE,
-		TxHash:    ethutil.HexToBytes(txHash),
-		BlockHash: ethutil.HexToBytes(blockHash),
-		Extras:    extras,
-	}
-	return issue
-}
-
-func (c *DbClient) NewErrorIssue(txHash string, blockHash string, blockNumber *big.Int, err error) *Issue {
+func (c *DbClient) NewErrorIssue(txHash []byte, blockNumber uint64, blockHash []byte, err error) *Issue {
 	extras := map[string]interface{}{
 		"error": err.Error(),
 	}
 	issue := &Issue{
-		Type:      ERROR_ISSUE,
-		TxHash:    ethutil.HexToBytes(txHash),
-		BlockHash: ethutil.HexToBytes(blockHash),
-		Extras:    extras,
+		Type:        ERROR_ISSUE,
+		BlockNumber: blockNumber,
+		BlockHash:   blockHash,
+		TxHash:      txHash,
+		Extras:      extras,
 	}
 	return issue
 }
 
-func (c *DbClient) SaveDuplicatedBlockHashIssue(blockHash string, blockNumber *big.Int, prevBlockNumber *big.Int) error {
-	issue := NewDuplicatedBlockHashIssue(blockHash, blockNumber, prevBlockNumber)
+func NewReorgBlockIssue(blockNumber uint64, blockHash, prevBlockHash []byte) *Issue {
+	extras := map[string]interface{}{
+		"prev_block_hash": prevBlockHash,
+	}
+	issue := &Issue{
+		Type:        REORG_BLOCK_ISSUE,
+		BlockNumber: blockNumber,
+		BlockHash:   blockHash,
+		TxHash:      make([]byte, 0),
+		Extras:      extras,
+	}
+	return issue
+}
+
+func NewDuplicatedTxHashIssue(txHash []byte, blockNumber uint64, blockHash []byte, prevBlockNumber uint64, prevBlockHash []byte) *Issue {
+	extras := map[string]interface{}{
+		"prev_block_number": prevBlockNumber,
+		"prev_block_hash":   prevBlockHash,
+	}
+	issue := &Issue{
+		Type:        DUPLICATED_TX_HASH_ISSUE,
+		BlockNumber: blockNumber,
+		BlockHash:   blockHash,
+		TxHash:      txHash,
+		Extras:      extras,
+	}
+	return issue
+}
+
+func (c *DbClient) SaveErrorIssue(txHash []byte, blockNumber uint64, blockHash []byte, err error) error {
+	issue := c.NewErrorIssue(txHash, blockNumber, blockHash, err)
 	return c.insertIssue(issue)
 }
 
-func (c *DbClient) SaveDuplicatedTxHashIssue(txHash string, blockNumber *big.Int, blockHash string, prevBlockNumber *big.Int, prevBlockHash string) error {
+func (c *DbClient) SaveReorgBlockIssue(blockNumber uint64, blockHash, prevBlockHash []byte) error {
+	issue := NewReorgBlockIssue(blockNumber, blockHash, prevBlockHash)
+	return c.insertIssue(issue)
+}
+
+func (c *DbClient) SaveDuplicatedTxHashIssue(txHash []byte, blockNumber uint64, blockHash []byte, prevBlockNumber uint64, prevBlockHash []byte) error {
 	issue := NewDuplicatedTxHashIssue(txHash, blockNumber, blockHash, prevBlockNumber, prevBlockHash)
 	return c.insertIssue(issue)
 }
 
-func (c *DbClient) SaveErrorIssue(txHash string, blockHash string, blockNumber *big.Int, err error) error {
-	issue := c.NewErrorIssue(txHash, blockHash, blockNumber, err)
-	return c.insertIssue(issue)
-}
-
-func (c *DbClient) SaveIssues(issues []*Issue) (*BulkWriteResult, error) {
+func (c *DbClient) SaveIssues(issues []*Issue) error {
 	return c.writeIssues(issues)
 }
 
@@ -106,12 +108,12 @@ func (c *DbClient) insertIssue(issue *Issue) error {
 	return result.Error
 }
 
-func (c *DbClient) writeIssues(newIssues []*Issue) (*BulkWriteResult, error) {
+func (c *DbClient) writeIssues(newIssues []*Issue) error {
 	now := time.Now().UnixMicro()
 	for _, issue := range newIssues {
 		issue.Checksum()
 		issue.Timestamp = now
 	}
 	result := c.d.CreateInBatches(newIssues, len(newIssues))
-	return &BulkWriteResult{InsertedCount: int64(len(newIssues))}, result.Error
+	return result.Error
 }

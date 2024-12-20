@@ -4,18 +4,14 @@ type RootConfig struct {
 	ConfigDir  string
 	ConfigFile string
 	IsPortable bool
-	MongoDB    *MongoDBConfig `koanf:"mongo"`
-	Viction    *VictionConfig `koanf:"viction"`
+	Blockchain *BlockchainConfig `koanf:"blockchain"`
+	Database   *DatabaseConfig   `koanf:"database"`
 }
 
-type MongoDBConfig struct {
-	Host     string `koanf:"host"`
-	Port     int32  `koanf:"port"`
-	Username string `koanf:"usr"`
-	Password string `koanf:"pwd"`
-	Database string `koanf:"db"`
+type DatabaseConfig struct {
+	PostgreSQL string `koanf:"pgsql"`
 }
 
-type VictionConfig struct {
+type BlockchainConfig struct {
 	RpcUrl string `koanf:"rpc"`
 }

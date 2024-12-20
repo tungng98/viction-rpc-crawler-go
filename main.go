@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -41,38 +40,24 @@ func main() {
 	if cfgErr != nil {
 		panic(cfgErr)
 	}
-	connStr := fmt.Sprintf("mongodb://%s:%s@%s:%d/?authSource=%s", cfg.MongoDB.Username, cfg.MongoDB.Password, cfg.MongoDB.Host, cfg.MongoDB.Port, cfg.MongoDB.Database)
-	if cfg.MongoDB.Username == "" || cfg.MongoDB.Password == "" {
-		connStr = fmt.Sprintf("mongodb://%s:%d", cfg.MongoDB.Host, cfg.MongoDB.Port)
-	}
 
 	if invokeArgs.IndexBlockTx != nil {
 		indexCfg := invokeArgs.IndexBlockTx
+		if indexCfg.RpcUrl != "" {
+			cfg.Blockchain.RpcUrl = indexCfg.RpcUrl
+		}
+		if indexCfg.PostgreSQL != "" {
+			cfg.Database.PostgreSQL = indexCfg.PostgreSQL
+		}
 		svc := &svc.IndexBlockTxService{
-			DbConnStr:       connStr,
-			RpcUrl:          cfg.Viction.RpcUrl,
+			DbConnStr:       cfg.Database.PostgreSQL,
+			RpcUrl:          cfg.Blockchain.RpcUrl,
 			Logger:          &log.Logger,
 			BatchSize:       int(indexCfg.BatchSize),
 			WorkerCount:     int(indexCfg.WorkerCount),
 			StartBlock:      int64(indexCfg.StartBlock),
 			EndBlock:        int64(indexCfg.EndBlock),
 			UseHighestBlock: !indexCfg.Forced,
-		}
-		svc.Exec()
-	}
-	if invokeArgs.ScanBlockForError != nil {
-		traceCfg := invokeArgs.ScanBlockForError
-		svc := &svc.TraceBlockService{
-			DbConnStr:          connStr,
-			DbName:             cfg.MongoDB.Database,
-			RpcUrl:             cfg.Viction.RpcUrl,
-			Logger:             &log.Logger,
-			WorkerCount:        int(traceCfg.WorkerCount),
-			BatchSize:          int(traceCfg.BatchSize),
-			StartBlock:         int64(traceCfg.StartBlock),
-			EndBlock:           int64(traceCfg.EndBlock),
-			UseCheckpointBlock: !traceCfg.NoCheckpoint,
-			SaveDebugData:      !traceCfg.NoSaveTrace,
 		}
 		svc.Exec()
 	}
@@ -84,7 +69,12 @@ func main() {
 				log.Error().Err(err).Msg("Cannot connect to database")
 				return
 			}
-			c.Migrate()
+			err = c.Migrate()
+			if err != nil {
+				log.Error().Err(err).Msg("Error while migrating database")
+				return
+			}
+			log.Info().Msg("Migration successful!")
 		}
 	}
 }

@@ -14,25 +14,25 @@ func TestInsertIssue(t *testing.T) {
 		currentBlockNum := ethutil.RandomNumber(0, ^uint64(0))
 		prevBlockNum := ethutil.RandomNumber(0, currentBlockNum)
 		err := db.SaveDuplicatedTxHashIssue(
-			ethutil.RandomTxHash(),
+			ethutil.HexToBytes(ethutil.RandomTxHash()),
 			new(big.Int).SetUint64(currentBlockNum),
-			ethutil.RandomBlockHash(),
+			ethutil.HexToBytes(ethutil.RandomBlockHash()),
 			new(big.Int).SetUint64(prevBlockNum),
-			ethutil.RandomBlockHash(),
+			ethutil.HexToBytes(ethutil.RandomBlockHash()),
 		)
 		if err != nil {
 			t.Fatalf("Error while getting saving issue. %v", err)
 		}
 		_, err = db.SaveIssues([]*Issue{
 			NewDuplicatedTxHashIssue(
-				ethutil.RandomTxHash(),
+				ethutil.HexToBytes(ethutil.RandomTxHash()),
 				new(big.Int).SetUint64(ethutil.RandomNumber(0, ^uint64(0))),
-				ethutil.RandomBlockHash(),
+				ethutil.HexToBytes(ethutil.RandomBlockHash()),
 				new(big.Int).SetUint64(ethutil.RandomNumber(0, ^uint64(0))),
-				ethutil.RandomBlockHash(),
+				ethutil.HexToBytes(ethutil.RandomBlockHash()),
 			),
 			NewDuplicatedBlockHashIssue(
-				ethutil.RandomTxHash(),
+				ethutil.HexToBytes(ethutil.RandomTxHash()),
 				new(big.Int).SetUint64(ethutil.RandomNumber(0, ^uint64(0))),
 				new(big.Int).SetUint64(ethutil.RandomNumber(0, ^uint64(0))),
 			),

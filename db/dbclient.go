@@ -33,8 +33,8 @@ func (c *DbClient) Collection(collection string) *mongo.Collection {
 func (c *DbClient) Disconnect() {
 }
 
-func (c *DbClient) Migrate() {
-	c.d.AutoMigrate(&Block{}, &Checkpoint{}, &Issue{}, &Transaction{})
+func (c *DbClient) Migrate() error {
+	return c.d.AutoMigrate(&Block{}, &Checkpoint{}, &Issue{}, &Transaction{})
 }
 
 func (c *DbClient) isEmptyResultError(err error) bool {
