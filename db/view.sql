@@ -1,1 +1,0 @@
-CREATE VIEW issues_view AS SELECT id, type, encode(block_hash::bytea, 'hex') "block_hash", encode(tx_hash::bytea, 'hex') "tx_hash", to_timestamp(timestamp/1000000) "timestamp", extras, status, encode(hash::bytea, 'hex') "hash" FROM public.issues ORDER BY id ASC;

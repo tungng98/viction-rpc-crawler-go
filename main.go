@@ -63,8 +63,11 @@ func main() {
 	}
 	if invokeArgs.ManageDatabase != nil {
 		subArgs := invokeArgs.ManageDatabase
+		if subArgs.Migrate.PostgreSQL != "" {
+			cfg.Database.PostgreSQL = subArgs.Migrate.PostgreSQL
+		}
 		if subArgs.Migrate != nil {
-			c, err := db.Connect(subArgs.Migrate.PostgreSQL, "")
+			c, err := db.Connect(cfg.Database.PostgreSQL, "")
 			if err != nil {
 				log.Error().Err(err).Msg("Cannot connect to database")
 				return

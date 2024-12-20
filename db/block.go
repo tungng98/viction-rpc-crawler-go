@@ -9,10 +9,6 @@ import (
 type Block struct {
 	ID                     uint64          `gorm:"column:id;primaryKey"`
 	Hash                   string          `gorm:"column:hash;length:32;uniqueIndex"`
-	ParentHash             string          `gorm:"column:parent_hash;length:32"`
-	StateRoot              string          `gorm:"column:state_root;length:32"`
-	TransactionsRoot       string          `gorm:"column:transaction_root;length:32"`
-	ReceiptsRoot           string          `gorm:"column:receipts_root;length:32"`
 	Timestamp              int64           `gorm:"column:timestamp"`
 	Size                   uint16          `gorm:"column:size"`
 	GasLimit               uint64          `gorm:"column:gas_limit"`
@@ -22,6 +18,10 @@ type Block struct {
 	TransactionCountSystem nullable.Uint16 `gorm:"column:transaction_count_system"`
 	TransactionCountDebug  nullable.Uint16 `gorm:"column:transaction_count_debug"`
 	BlockMintDuration      nullable.Uint64 `gorm:"column:block_mint_duration"`
+	ParentHash             string          `gorm:"column:parent_hash;length:32"`
+	StateRoot              string          `gorm:"column:state_root;length:32"`
+	TransactionsRoot       string          `gorm:"column:transaction_root;length:32"`
+	ReceiptsRoot           string          `gorm:"column:receipts_root;length:32"`
 }
 
 func NewBlock(blockNumber *big.Int, blockHash, parentHash string, stateRoot, transactionRoot, receiptsRoot string, timestamp int64, size uint16, gasLimit, gasUsed uint64, totalDifficult uint64,

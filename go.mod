@@ -1,6 +1,6 @@
 module viction-rpc-crawler-go
 
-go 1.22
+go 1.22.0
 
 toolchain go1.22.7
 
@@ -13,8 +13,9 @@ require (
 	github.com/knadh/koanf/providers/structs v0.1.0
 	github.com/knadh/koanf/v2 v2.1.1
 	github.com/rs/zerolog v1.33.0
+	github.com/tee8z/nullable v1.0.5
 	go.mongodb.org/mongo-driver v1.17.1
-	golang.org/x/exp v0.0.0-20220426173459-3bcf042a4bf5
+	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
 )
@@ -47,7 +48,6 @@ require (
 	github.com/montanaflynn/stats v0.7.1 // indirect
 	github.com/rogpeppe/go-internal v1.13.1 // indirect
 	github.com/shirou/gopsutil v3.21.4-0.20210419000835-c7a38de76ee5+incompatible // indirect
-	github.com/tee8z/nullable v1.0.5 // indirect
 	github.com/tklauser/go-sysconf v0.3.5 // indirect
 	github.com/tklauser/numcpus v0.2.2 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
@@ -55,7 +55,7 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20240726163527-a2c0da244d78 // indirect
 	golang.org/x/crypto v0.26.0 // indirect
-	golang.org/x/sync v0.8.0 // indirect
+	golang.org/x/sync v0.10.0 // indirect
 	golang.org/x/sys v0.23.0 // indirect
 	golang.org/x/text v0.17.0 // indirect
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
