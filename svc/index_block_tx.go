@@ -17,12 +17,12 @@ import (
 )
 
 var SYSTEM_ADDRESSES = []string{
-	"0x0000000000000000000000000000000000000089", // Sign block
-	"0x0000000000000000000000000000000000000090", // Randomize
-	"0x0000000000000000000000000000000000000091", // TomoX
-	"0x0000000000000000000000000000000000000092", // TomoXTradingState
-	"0x0000000000000000000000000000000000000093", // TomoXLending
-	"0x0000000000000000000000000000000000000094", // TomoXFinalLending
+	"0000000000000000000000000000000000000089", // Sign block
+	"0000000000000000000000000000000000000090", // Randomize
+	"0000000000000000000000000000000000000091", // TomoX
+	"0000000000000000000000000000000000000092", // TomoXTradingState
+	"0000000000000000000000000000000000000093", // TomoXLending
+	"0000000000000000000000000000000000000094", // TomoXFinalLending
 }
 
 type IndexBlockTxService struct {
@@ -171,23 +171,25 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 		}
 	}
 
+	newBlockMap := make(map[uint64]*db.Block)
+	changedBlockMap := make(map[uint64]*db.Block)
 	changedBlocks, err := dbc.GetBlocksByHashes(blockHashes)
 	if err != nil {
 		return nil, err
 	}
-	changedTxs, err := dbc.GetTransactions(txHashes)
-	if err != nil {
-		return nil, err
-	}
-	newBlockMap := make(map[uint64]*db.Block)
-	changedBlockMap := make(map[uint64]*db.Block)
-	newTxMap := make(map[string]*db.Transaction)
-	changedTxMap := make(map[string]*db.Transaction)
 	for _, block := range changedBlocks {
 		changedBlockMap[block.ID] = block
 	}
-	for _, tx := range changedTxs {
-		changedTxMap[tx.Hash] = tx
+	newTxMap := make(map[string]*db.Transaction)
+	changedTxMap := make(map[string]*db.Transaction)
+	if s.IncludeTxs {
+		changedTxs, err := dbc.GetTransactions(txHashes)
+		if err != nil {
+			return nil, err
+		}
+		for _, tx := range changedTxs {
+			changedTxMap[tx.Hash] = tx
+		}
 	}
 	for _, block := range blocks {
 		blockNumber := block.Number.BigInt()
