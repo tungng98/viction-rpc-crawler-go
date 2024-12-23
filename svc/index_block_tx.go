@@ -33,6 +33,7 @@ type IndexBlockTxService struct {
 	UseHighestBlock bool
 	BatchSize       int
 	WorkerCount     int
+	IncludeTxs      bool
 	Logger          *zerolog.Logger
 
 	workers *GetBlockDataQueue
@@ -91,9 +92,11 @@ func (s *IndexBlockTxService) Exec() {
 			}
 		}
 		if len(batchData.NewTxs)+len(batchData.ChangedTxs) > 0 {
-			err = db.SaveTransactions(batchData.NewTxs, batchData.ChangedTxs)
-			if err != nil {
-				panic(err)
+			if s.IncludeTxs {
+				err = db.SaveTransactions(batchData.NewTxs, batchData.ChangedTxs)
+				if err != nil {
+					panic(err)
+				}
 			}
 		}
 		if len(batchData.Issues) > 0 {
@@ -189,6 +192,7 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 	for _, block := range blocks {
 		blockNumber := block.Number.BigInt()
 		blockHash := block.Hash.Hex()
+		txCount := uint16(len(block.Transactions))
 		systemTxCount := uint16(0)
 		for _, tx := range block.Transactions {
 			txHash := tx.Hash.Hex()
@@ -224,6 +228,7 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 				issues = append(issues, issue)
 			}
 			s.copyBlockProperties(block, cblock)
+			cblock.TransactionCount.Scan(&txCount)
 			cblock.TransactionCountSystem.Scan(&systemTxCount)
 		} else if nblock, ok := newBlockMap[blockNumber.Uint64()]; ok {
 			if nblock.Hash != blockHash {
@@ -231,11 +236,13 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 				issues = append(issues, issue)
 			}
 			s.copyBlockProperties(block, nblock)
+			nblock.TransactionCount.Scan(&txCount)
 			nblock.TransactionCountSystem.Scan(&systemTxCount)
 		} else {
 			nblock := &db.Block{ID: blockNumber.Uint64()}
 			s.copyBlockProperties(block, nblock)
 			newBlockMap[blockNumber.Uint64()] = nblock
+			nblock.TransactionCount.Scan(&txCount)
 			nblock.TransactionCountSystem.Scan(&systemTxCount)
 		}
 	}
@@ -257,27 +264,27 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 
 func (s *IndexBlockTxService) copyBlockProperties(ethBlock *rpc.Block, dbBlock *db.Block) {
 	dbBlock.Hash = ethBlock.Hash.Hex()
+	dbBlock.ParentHash = ethBlock.ParentHash.Hex()
 	dbBlock.Timestamp = int64(ethBlock.Timestamp.Int())
 	dbBlock.Size = uint16(ethBlock.Size.Int())
 	dbBlock.GasLimit = ethBlock.GasLimit.Int()
 	dbBlock.GasUsed = ethBlock.GasUsed.Int()
 	dbBlock.Difficulty = ethBlock.Difficulty.Decimal()
 	dbBlock.TotalDifficulty = ethBlock.TotalDifficulty.Decimal()
-	dbBlock.TransactionCount = uint16(len(ethBlock.Transactions))
+	dbBlock.TransactionCount = typ.NullUint16{}
 	dbBlock.TransactionCountSystem = typ.NullUint16{}
 	dbBlock.TransactionCountDebug = typ.NullUint16{}
 	dbBlock.BlockMintDuration = typ.NullUint64{}
-	dbBlock.ParentHash = ethBlock.ParentHash.Hex()
-	dbBlock.UncleHash = ethBlock.Sha3Uncles.Hex()
-	dbBlock.StateRoot = ethBlock.StateRoot.Hex()
-	dbBlock.TransactionsRoot = ethBlock.TransactionsRoot.Hex()
-	dbBlock.ReceiptsRoot = ethBlock.ReceiptsRoot.Hex()
-	dbBlock.LogsBloom = ethBlock.LogsBloom.Hex()
-	dbBlock.Miner = ethBlock.Miner.Hex()
-	dbBlock.ExtraData = ethBlock.ExtraData.Hex()
-	dbBlock.MixDigest = ethBlock.MixDigest.Hex()
-	dbBlock.Nonce = ethBlock.Nonce.Hex()
-	dbBlock.Validator = ethBlock.Validator.Hex()
+	dbBlock.UncleHash = ethBlock.Sha3Uncles.Bytes()
+	dbBlock.StateRoot = ethBlock.StateRoot.Bytes()
+	dbBlock.TransactionsRoot = ethBlock.TransactionsRoot.Bytes()
+	dbBlock.ReceiptsRoot = ethBlock.ReceiptsRoot.Bytes()
+	dbBlock.LogsBloom = ethBlock.LogsBloom.Bytes()
+	dbBlock.Miner = ethBlock.Miner.Bytes()
+	dbBlock.ExtraData = ethBlock.ExtraData.Bytes()
+	dbBlock.MixDigest = ethBlock.MixDigest.Bytes()
+	dbBlock.Nonce = ethBlock.Nonce.Bytes()
+	dbBlock.Validator = ethBlock.Validator.Bytes()
 	dbBlock.Creator = typ.NullString{}
 	dbBlock.Attestor = typ.NullString{}
 	signatureLength := 65

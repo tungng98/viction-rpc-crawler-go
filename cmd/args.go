@@ -19,6 +19,7 @@ type IndexBlockTxCmd struct {
 	WorkerCount int    `arg:"--worker" help:"Number of concurrent routine to fetch blocks from RPC"`
 	BatchSize   int    `arg:"--batch" help:"Number of blocks to persisted in one write operation"`
 	Forced      bool   `arg:"--force" help:"Ignore the checkpoint number stored in database"`
+	IncludeTxs  bool   `arg:"--txs" help:"Save transaction data to database"`
 	PostgreSQL  string `arg:"--pgsql" help:"Connection string to PostgreSQL"`
 	RpcUrl      string `arg:"--rpc" help:"Blockchain node RPC endpoint"`
 }

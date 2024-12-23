@@ -10,38 +10,39 @@ import (
 type Block struct {
 	ID                     uint64          `gorm:"column:id;primaryKey"`
 	Hash                   string          `gorm:"column:hash;length:32;uniqueIndex"`
+	ParentHash             string          `gorm:"column:parent_hash;length:32"`
 	Timestamp              int64           `gorm:"column:timestamp"`
 	Size                   uint16          `gorm:"column:size"`
 	GasLimit               uint64          `gorm:"column:gas_limit"`
 	GasUsed                uint64          `gorm:"column:gas_used"`
 	Difficulty             decimal.Decimal `gorm:"column:difficulty;type:decimal(78,0)"`
 	TotalDifficulty        decimal.Decimal `gorm:"column:total_difficulty;type:decimal(78,0)"`
-	TransactionCount       uint16          `gorm:"column:transaction_count"`
+	TransactionCount       typ.NullUint16  `gorm:"column:transaction_count"`
 	TransactionCountSystem typ.NullUint16  `gorm:"column:transaction_count_system"`
 	TransactionCountDebug  typ.NullUint16  `gorm:"column:transaction_count_debug"`
 	BlockMintDuration      typ.NullUint64  `gorm:"column:block_mint_duration"`
-	ParentHash             string          `gorm:"column:parent_hash;length:32"`
-	UncleHash              string          `gorm:"column:uncle_hash;length:32"`
-	StateRoot              string          `gorm:"column:state_root;length:32"`
-	TransactionsRoot       string          `gorm:"column:transaction_root;length:32"`
-	ReceiptsRoot           string          `gorm:"column:receipts_root;length:32"`
-	LogsBloom              string          `gorm:"column:logs_bloom;length:256"`
-	Miner                  string          `gorm:"column:miner;length:20"`
-	ExtraData              string          `gorm:"column:extra_data"`
-	MixDigest              string          `gorm:"column:mix_digest"`
-	Nonce                  string          `gorm:"column:nonce"`
-	Validator              string          `gorm:"column:validator"`
+	UncleHash              []byte          `gorm:"column:uncle_hash;length:32"`
+	StateRoot              []byte          `gorm:"column:state_root;length:32"`
+	TransactionsRoot       []byte          `gorm:"column:transaction_root;length:32"`
+	ReceiptsRoot           []byte          `gorm:"column:receipts_root;length:32"`
+	LogsBloom              []byte          `gorm:"column:logs_bloom;length:256"`
+	Miner                  []byte          `gorm:"column:miner;length:20"`
+	ExtraData              []byte          `gorm:"column:extra_data"`
+	MixDigest              []byte          `gorm:"column:mix_digest"`
+	Nonce                  []byte          `gorm:"column:nonce"`
+	Validator              []byte          `gorm:"column:validator"`
 	Creator                typ.NullString  `gorm:"column:creator"`
 	Attestor               typ.NullString  `gorm:"column:attestor"`
 }
 
-func NewBlock(blockNumber *big.Int, blockHash string, timestamp int64, size uint16, gasLimit, gasUsed uint64, difficulty, totalDifficulty *big.Int,
-	transactionCount uint16, transactionCountSystem, transactionCountDebug typ.NullUint16, blockMintDuration typ.NullUint64,
-	parentHash, uncleHash string, stateRoot, transactionsRoot, receiptsRoot, logsBloom string,
-	miner, extraData, mixDigest, nonce, validator string, creator, attestor typ.NullString) *Block {
+func NewBlock(blockNumber *big.Int, blockHash, parentHash string, timestamp int64, size uint16, gasLimit, gasUsed uint64, difficulty, totalDifficulty *big.Int,
+	transactionCount, transactionCountSystem, transactionCountDebug typ.NullUint16, blockMintDuration typ.NullUint64,
+	uncleHash []byte, stateRoot, transactionsRoot, receiptsRoot, logsBloom []byte,
+	miner, extraData, mixDigest, nonce, validator []byte, creator, attestor typ.NullString) *Block {
 	return &Block{
 		ID:                     blockNumber.Uint64(),
 		Hash:                   blockHash,
+		ParentHash:             parentHash,
 		Timestamp:              timestamp,
 		Size:                   size,
 		GasLimit:               gasLimit,
@@ -52,7 +53,6 @@ func NewBlock(blockNumber *big.Int, blockHash string, timestamp int64, size uint
 		TransactionCountSystem: transactionCountSystem,
 		TransactionCountDebug:  transactionCountDebug,
 		BlockMintDuration:      blockMintDuration,
-		ParentHash:             parentHash,
 		UncleHash:              uncleHash,
 		StateRoot:              stateRoot,
 		TransactionsRoot:       transactionsRoot,
@@ -141,6 +141,7 @@ func (c *DbClient) updateBlockByID(id uint64, block *Block) error {
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"hash":                     block.Hash,
+			"parent_hash":              block.ParentHash,
 			"timestamp":                block.Timestamp,
 			"size":                     block.Size,
 			"gas_limit":                block.GasLimit,
@@ -151,7 +152,6 @@ func (c *DbClient) updateBlockByID(id uint64, block *Block) error {
 			"transaction_count_system": block.TransactionCountSystem,
 			"transaction_count_debug":  block.TransactionCountDebug,
 			"block_mint_duration":      block.BlockMintDuration,
-			"parent_hash":              block.ParentHash,
 			"uncle_hash":               block.UncleHash,
 			"state_root":               block.StateRoot,
 			"transaction_root":         block.TransactionsRoot,
@@ -182,6 +182,7 @@ func (c *DbClient) writeBlocks(newBlocks []*Block, changedBlocks []*Block) error
 			Where("id = ?", block.ID).
 			Updates(map[string]interface{}{
 				"hash":                     block.Hash,
+				"parent_hash":              block.ParentHash,
 				"timestamp":                block.Timestamp,
 				"size":                     block.Size,
 				"gas_limit":                block.GasLimit,
@@ -192,7 +193,6 @@ func (c *DbClient) writeBlocks(newBlocks []*Block, changedBlocks []*Block) error
 				"transaction_count_system": block.TransactionCountSystem,
 				"transaction_count_debug":  block.TransactionCountDebug,
 				"block_mint_duration":      block.BlockMintDuration,
-				"parent_hash":              block.ParentHash,
 				"uncle_hash":               block.UncleHash,
 				"state_root":               block.StateRoot,
 				"transaction_root":         block.TransactionsRoot,

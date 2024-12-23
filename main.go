@@ -58,6 +58,7 @@ func main() {
 			StartBlock:      int64(indexCfg.StartBlock),
 			EndBlock:        int64(indexCfg.EndBlock),
 			UseHighestBlock: !indexCfg.Forced,
+			IncludeTxs:      indexCfg.IncludeTxs,
 		}
 		svc.Exec()
 	}
