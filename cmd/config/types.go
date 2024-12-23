@@ -18,5 +18,6 @@ type BlockchainConfig struct {
 }
 
 type ZeroLogConfig struct {
-	Level int8 `koanf:"level"`
+	Level        int8 `koanf:"level"`
+	ConsoleLevel int8 `koanf:"consoleLevel"`
 }

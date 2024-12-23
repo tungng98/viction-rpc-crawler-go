@@ -18,7 +18,7 @@ var invokeArgs cmd.Args
 
 func main() {
 	cfg, cfgErr := config.InitKoanf()
-	logFile := diag.InitZerolog(cfg.ConfigDir, cfg.ZeroLog.Level)
+	logFile := diag.InitZerolog(cfg.ConfigDir, cfg.ZeroLog.Level, cfg.ZeroLog.ConsoleLevel)
 	if logFile != nil {
 		defer logFile.Close()
 	}

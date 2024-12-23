@@ -74,7 +74,8 @@ func defaultConfig() *koanf.Koanf {
 			},
 			Database: &DatabaseConfig{},
 			ZeroLog: &ZeroLogConfig{
-				Level: int8(zerolog.DebugLevel),
+				Level:        int8(zerolog.DebugLevel),
+				ConsoleLevel: int8(zerolog.DebugLevel),
 			},
 		}, "koanf"),
 		nil,
