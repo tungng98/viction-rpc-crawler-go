@@ -8,6 +8,26 @@ import (
 
 const RPC_URL = "https://rpc.viction.xyz"
 
+func TestGetBlock(t *testing.T) {
+	tests := []struct {
+		number *big.Int
+	}{
+		{big.NewInt(71717171)},
+	}
+	for _, tt := range tests {
+		t.Run(tt.number.String(), func(t *testing.T) {
+			client, err := Connect(RPC_URL)
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, err = client.GetBlockByNumber2(tt.number)
+			if err != nil {
+				t.Fatal(err)
+			}
+		})
+	}
+}
+
 func TestRcpCallString(t *testing.T) {
 	tests := []struct {
 		name   string
