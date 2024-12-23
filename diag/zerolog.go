@@ -10,10 +10,10 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func InitZerolog(configDir string) *os.File {
+func InitZerolog(configDir string, level int8) *os.File {
 	consoleWriter := &zerolog.FilteredLevelWriter{
 		Writer: zerolog.LevelWriterAdapter{Writer: zerolog.ConsoleWriter{Out: os.Stdout, NoColor: true, TimeFormat: time.DateTime}},
-		Level:  zerolog.DebugLevel,
+		Level:  zerolog.Level(level),
 	}
 
 	logFile := ""

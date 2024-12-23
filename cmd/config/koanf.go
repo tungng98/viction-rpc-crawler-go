@@ -12,6 +12,7 @@ import (
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/providers/structs"
 	"github.com/knadh/koanf/v2"
+	"github.com/rs/zerolog"
 )
 
 var cfg *RootConfig
@@ -72,6 +73,9 @@ func defaultConfig() *koanf.Koanf {
 				RpcUrl: "http://localhost:8545",
 			},
 			Database: &DatabaseConfig{},
+			ZeroLog: &ZeroLogConfig{
+				Level: int8(zerolog.DebugLevel),
+			},
 		}, "koanf"),
 		nil,
 	)

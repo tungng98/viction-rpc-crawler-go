@@ -6,6 +6,7 @@ type RootConfig struct {
 	IsPortable bool
 	Blockchain *BlockchainConfig `koanf:"blockchain"`
 	Database   *DatabaseConfig   `koanf:"database"`
+	ZeroLog    *ZeroLogConfig    `koanf:"zerolog"`
 }
 
 type DatabaseConfig struct {
@@ -14,4 +15,8 @@ type DatabaseConfig struct {
 
 type BlockchainConfig struct {
 	RpcUrl string `koanf:"rpc"`
+}
+
+type ZeroLogConfig struct {
+	Level int8 `koanf:"level"`
 }
