@@ -9,11 +9,11 @@ import (
 
 	"viction-rpc-crawler-go/db"
 	"viction-rpc-crawler-go/rpc"
+	"viction-rpc-crawler-go/x/ethutil"
 
-	"github.com/ethereum/go-ethereum/core/types"
+	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gurukami/typ"
 	"github.com/rs/zerolog"
-	"github.com/shopspring/decimal"
 )
 
 var SYSTEM_ADDRESSES = []string{
@@ -127,9 +127,9 @@ func (s *IndexBlockTxService) init() {
 	}
 }
 
-func (s *IndexBlockTxService) getBlockData(startBlockNumber *big.Int, endBlockNumber *big.Int) ([]*types.Block, error) {
+func (s *IndexBlockTxService) getBlockData(startBlockNumber *big.Int, endBlockNumber *big.Int) ([]*rpc.Block, error) {
 	batchSize := int(new(big.Int).Sub(endBlockNumber, startBlockNumber).Int64() + 1)
-	s.workers.BlockData = make([]*types.Block, batchSize)
+	s.workers.BlockData = make([]*rpc.Block, batchSize)
 	s.workers.ChanCompleteSignal = new(sync.WaitGroup)
 	s.workers.ChanCompleteSignal.Add(batchSize)
 	startTime := time.Now()
@@ -149,7 +149,7 @@ type IndexBlockBatchDataResult struct {
 	Issues        []*db.Issue
 }
 
-func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types.Block) (*IndexBlockBatchDataResult, error) {
+func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.Block) (*IndexBlockBatchDataResult, error) {
 	result := &IndexBlockBatchDataResult{
 		NewBlocks:     []*db.Block{},
 		ChangedBlocks: []*db.Block{},
@@ -162,9 +162,9 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 	txHashes := []string{}
 	issues := []*db.Issue{}
 	for _, block := range blocks {
-		blockHashes = append(blockHashes, hex.EncodeToString(block.Hash().Bytes()))
-		for _, tx := range block.Transactions() {
-			txHashes = append(txHashes, hex.EncodeToString(tx.Hash().Bytes()))
+		blockHashes = append(blockHashes, block.Hash.Hex())
+		for _, tx := range block.Transactions {
+			txHashes = append(txHashes, tx.Hash.Hex())
 		}
 	}
 
@@ -187,32 +187,32 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 		changedTxMap[tx.Hash] = tx
 	}
 	for _, block := range blocks {
-		blockNumber := block.Number()
-		blockHash := hex.EncodeToString(block.Hash().Bytes())
+		blockNumber := block.Number.BigInt()
+		blockHash := block.Hash.Hex()
 		systemTxCount := uint16(0)
-		for _, tx := range block.Transactions() {
-			txHash := hex.EncodeToString(tx.Hash().Bytes())
+		for _, tx := range block.Transactions {
+			txHash := tx.Hash.Hex()
 			toAddress := ""
-			if tx.To() != nil {
-				toAddress = tx.To().Hex()
+			if tx.To != nil {
+				toAddress = tx.To.Hex()
 			}
 			if slices.Contains(SYSTEM_ADDRESSES, toAddress) {
 				systemTxCount += 1
 			}
 			if ctx, ok := changedTxMap[txHash]; ok {
 				if ctx.BlockID != blockNumber.Uint64() {
-					issue := db.NewDuplicatedTxHashIssue(hex.EncodeToString(tx.Hash().Bytes()), blockNumber.Uint64(), blockHash, ctx.BlockID, ctx.BlockHash)
+					issue := db.NewDuplicatedTxHashIssue(tx.Hash.Hex(), blockNumber.Uint64(), blockHash, ctx.BlockID, ctx.BlockHash)
 					issues = append(issues, issue)
 				}
 				s.copyTransactionProperties(tx, block, ctx)
 			} else if ntx, ok := newTxMap[txHash]; ok {
 				if ntx.BlockID != blockNumber.Uint64() {
-					issue := db.NewDuplicatedTxHashIssue(hex.EncodeToString(tx.Hash().Bytes()), blockNumber.Uint64(), blockHash, ntx.BlockID, ntx.BlockHash)
+					issue := db.NewDuplicatedTxHashIssue(tx.Hash.Hex(), blockNumber.Uint64(), blockHash, ntx.BlockID, ntx.BlockHash)
 					issues = append(issues, issue)
 				}
 				s.copyTransactionProperties(tx, block, ntx)
 			} else {
-				ntx := &db.Transaction{Hash: hex.EncodeToString(tx.Hash().Bytes())}
+				ntx := &db.Transaction{Hash: tx.Hash.Hex()}
 				s.copyTransactionProperties(tx, block, ntx)
 				newTxMap[txHash] = ntx
 			}
@@ -255,43 +255,69 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*types
 	return result, err
 }
 
-func (s *IndexBlockTxService) copyBlockProperties(ethBlock *types.Block, dbBlock *db.Block) {
-	dbBlock.Hash = hex.EncodeToString(ethBlock.Hash().Bytes())
-	dbBlock.ParentHash = hex.EncodeToString(ethBlock.ParentHash().Bytes())
-	dbBlock.StateRoot = hex.EncodeToString(ethBlock.Root().Bytes())
-	dbBlock.TransactionsRoot = hex.EncodeToString(ethBlock.TxHash().Bytes())
-	dbBlock.ReceiptsRoot = hex.EncodeToString(ethBlock.ReceiptHash().Bytes())
-	dbBlock.Timestamp = int64(ethBlock.Header().Time)
-	dbBlock.Size = uint16(ethBlock.Size())
-	dbBlock.GasLimit = ethBlock.GasLimit()
-	dbBlock.GasUsed = ethBlock.GasUsed()
-	dbBlock.TotalDifficulty = ethBlock.Difficulty().Uint64()
-	dbBlock.TransactionCount = uint16(len(ethBlock.Transactions()))
+func (s *IndexBlockTxService) copyBlockProperties(ethBlock *rpc.Block, dbBlock *db.Block) {
+	dbBlock.Hash = ethBlock.Hash.Hex()
+	dbBlock.Timestamp = int64(ethBlock.Timestamp.Int())
+	dbBlock.Size = uint16(ethBlock.Size.Int())
+	dbBlock.GasLimit = ethBlock.GasLimit.Int()
+	dbBlock.GasUsed = ethBlock.GasUsed.Int()
+	dbBlock.Difficulty = ethBlock.Difficulty.Decimal()
+	dbBlock.TotalDifficulty = ethBlock.TotalDifficulty.Decimal()
+	dbBlock.TransactionCount = uint16(len(ethBlock.Transactions))
 	dbBlock.TransactionCountSystem = typ.NullUint16{}
 	dbBlock.TransactionCountDebug = typ.NullUint16{}
 	dbBlock.BlockMintDuration = typ.NullUint64{}
+	dbBlock.ParentHash = ethBlock.ParentHash.Hex()
+	dbBlock.UncleHash = ethBlock.Sha3Uncles.Hex()
+	dbBlock.StateRoot = ethBlock.StateRoot.Hex()
+	dbBlock.TransactionsRoot = ethBlock.TransactionsRoot.Hex()
+	dbBlock.ReceiptsRoot = ethBlock.ReceiptsRoot.Hex()
+	dbBlock.LogsBloom = ethBlock.LogsBloom.Hex()
+	dbBlock.Miner = ethBlock.Miner.Hex()
+	dbBlock.ExtraData = ethBlock.ExtraData.Hex()
+	dbBlock.MixDigest = ethBlock.MixDigest.Hex()
+	dbBlock.Nonce = ethBlock.Nonce.Hex()
+	dbBlock.Validator = ethBlock.Validator.Hex()
+	dbBlock.Creator = typ.NullString{}
+	dbBlock.Attestor = typ.NullString{}
+	signatureLength := 65
+	extraData := ethBlock.ExtraData.Bytes()
+	creatorSignature := extraData[len(extraData)-signatureLength:]
+	creator, err := crypto.Ecrecover(ethBlock.SigHash(), creatorSignature)
+	if err == nil {
+		addr := ethutil.PubkeyToAddress(creator)
+		dbBlock.Creator.Set(hex.EncodeToString(addr))
+	}
+	if ethBlock.Validator != nil && len(ethBlock.Validator.Bytes()) >= signatureLength {
+		validatorBytes := ethBlock.Validator.Bytes()
+		attestorSignature := validatorBytes[len(validatorBytes)-signatureLength:]
+		attestor, err := crypto.Ecrecover(ethBlock.SigHash(), attestorSignature)
+		if err == nil {
+			addr := ethutil.PubkeyToAddress(attestor)
+			dbBlock.Attestor.Set(hex.EncodeToString(addr))
+		}
+	}
 }
 
-func (s *IndexBlockTxService) copyTransactionProperties(ethTransaction *types.Transaction, ethBlock *types.Block, dbTransaction *db.Transaction) {
-	from, _ := types.Sender(types.NewEIP155Signer(ethTransaction.ChainId()), ethTransaction)
-	dbTransaction.BlockID = ethBlock.Number().Uint64()
-	dbTransaction.BlockHash = hex.EncodeToString(ethBlock.Hash().Bytes())
+func (s *IndexBlockTxService) copyTransactionProperties(ethTransaction *rpc.Transaction, ethBlock *rpc.Block, dbTransaction *db.Transaction) {
+	dbTransaction.BlockID = ethBlock.Number.Int()
+	dbTransaction.BlockHash = ethBlock.Hash.Hex()
 	dbTransaction.TransactionIndex = 0
-	dbTransaction.From = hex.EncodeToString(from.Bytes())
-	if ethTransaction.To() != nil {
-		dbTransaction.To = hex.EncodeToString(ethTransaction.To().Bytes())
+	dbTransaction.From = ethTransaction.From.Hex()
+	if ethTransaction.To != nil {
+		dbTransaction.To = ethTransaction.To.Hex()
 	}
-	dbTransaction.Value = decimal.NewFromBigInt(ethTransaction.Value(), 0)
-	dbTransaction.Nonce = ethTransaction.Nonce()
-	dbTransaction.Gas = ethTransaction.Gas()
-	dbTransaction.GasPrice = decimal.NewFromBigInt(ethTransaction.GasPrice(), 0)
+	dbTransaction.Value = ethTransaction.Value.Decimal()
+	dbTransaction.Nonce = ethTransaction.Nonce.Int()
+	dbTransaction.Gas = ethTransaction.Gas.Int()
+	dbTransaction.GasPrice = ethTransaction.GasPrice.Decimal()
 }
 
 type GetBlockDataQueue struct {
 	chanBlockNumbers   chan *GetBlockDataItem
 	client             *rpc.EthClient
 	logger             *zerolog.Logger
-	BlockData          []*types.Block
+	BlockData          []*rpc.Block
 	ChanCompleteSignal *sync.WaitGroup
 	Error              error
 }
@@ -307,7 +333,7 @@ func (q *GetBlockDataQueue) Start() {
 		case data := <-q.chanBlockNumbers:
 			startTime := time.Now()
 			var err error
-			q.BlockData[data.index], err = q.client.GetBlockByNumber(data.blockNumber)
+			q.BlockData[data.index], err = q.client.GetBlockByNumber2(data.blockNumber)
 			if err != nil {
 				q.BlockData[data.index] = nil
 				q.Error = err

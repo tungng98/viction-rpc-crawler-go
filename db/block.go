@@ -4,44 +4,67 @@ import (
 	"math/big"
 
 	"github.com/gurukami/typ"
+	"github.com/shopspring/decimal"
 )
 
 type Block struct {
-	ID                     uint64         `gorm:"column:id;primaryKey"`
-	Hash                   string         `gorm:"column:hash;length:32;uniqueIndex"`
-	Timestamp              int64          `gorm:"column:timestamp"`
-	Size                   uint16         `gorm:"column:size"`
-	GasLimit               uint64         `gorm:"column:gas_limit"`
-	GasUsed                uint64         `gorm:"column:gas_used"`
-	TotalDifficulty        uint64         `gorm:"column:total_difficulty"`
-	TransactionCount       uint16         `gorm:"column:transaction_count"`
-	TransactionCountSystem typ.NullUint16 `gorm:"column:transaction_count_system"`
-	TransactionCountDebug  typ.NullUint16 `gorm:"column:transaction_count_debug"`
-	BlockMintDuration      typ.NullUint64 `gorm:"column:block_mint_duration"`
-	ParentHash             string         `gorm:"column:parent_hash;length:32"`
-	StateRoot              string         `gorm:"column:state_root;length:32"`
-	TransactionsRoot       string         `gorm:"column:transaction_root;length:32"`
-	ReceiptsRoot           string         `gorm:"column:receipts_root;length:32"`
+	ID                     uint64          `gorm:"column:id;primaryKey"`
+	Hash                   string          `gorm:"column:hash;length:32;uniqueIndex"`
+	Timestamp              int64           `gorm:"column:timestamp"`
+	Size                   uint16          `gorm:"column:size"`
+	GasLimit               uint64          `gorm:"column:gas_limit"`
+	GasUsed                uint64          `gorm:"column:gas_used"`
+	Difficulty             decimal.Decimal `gorm:"column:difficulty;type:decimal(78,0)"`
+	TotalDifficulty        decimal.Decimal `gorm:"column:total_difficulty;type:decimal(78,0)"`
+	TransactionCount       uint16          `gorm:"column:transaction_count"`
+	TransactionCountSystem typ.NullUint16  `gorm:"column:transaction_count_system"`
+	TransactionCountDebug  typ.NullUint16  `gorm:"column:transaction_count_debug"`
+	BlockMintDuration      typ.NullUint64  `gorm:"column:block_mint_duration"`
+	ParentHash             string          `gorm:"column:parent_hash;length:32"`
+	UncleHash              string          `gorm:"column:uncle_hash;length:32"`
+	StateRoot              string          `gorm:"column:state_root;length:32"`
+	TransactionsRoot       string          `gorm:"column:transaction_root;length:32"`
+	ReceiptsRoot           string          `gorm:"column:receipts_root;length:32"`
+	LogsBloom              string          `gorm:"column:logs_bloom;length:256"`
+	Miner                  string          `gorm:"column:miner;length:20"`
+	ExtraData              string          `gorm:"column:extra_data"`
+	MixDigest              string          `gorm:"column:mix_digest"`
+	Nonce                  string          `gorm:"column:nonce"`
+	Validator              string          `gorm:"column:validator"`
+	Creator                typ.NullString  `gorm:"column:creator"`
+	Attestor               typ.NullString  `gorm:"column:attestor"`
 }
 
-func NewBlock(blockNumber *big.Int, blockHash, parentHash string, stateRoot, transactionRoot, receiptsRoot string, timestamp int64, size uint16, gasLimit, gasUsed uint64, totalDifficult uint64,
-	transactionCount uint16, transactionCountSystem, transactionCountDebug typ.NullUint16, blockMintDuration typ.NullUint64) *Block {
+func NewBlock(blockNumber *big.Int, blockHash string, timestamp int64, size uint16, gasLimit, gasUsed uint64, difficulty, totalDifficulty *big.Int,
+	transactionCount uint16, transactionCountSystem, transactionCountDebug typ.NullUint16, blockMintDuration typ.NullUint64,
+	parentHash, uncleHash string, stateRoot, transactionsRoot, receiptsRoot, logsBloom string,
+	miner, extraData, mixDigest, nonce, validator string, creator, attestor typ.NullString) *Block {
 	return &Block{
 		ID:                     blockNumber.Uint64(),
 		Hash:                   blockHash,
-		ParentHash:             parentHash,
-		StateRoot:              stateRoot,
-		TransactionsRoot:       transactionRoot,
-		ReceiptsRoot:           receiptsRoot,
 		Timestamp:              timestamp,
 		Size:                   size,
 		GasLimit:               gasLimit,
 		GasUsed:                gasUsed,
-		TotalDifficulty:        totalDifficult,
+		Difficulty:             decimal.NewFromBigInt(difficulty, 0),
+		TotalDifficulty:        decimal.NewFromBigInt(totalDifficulty, 0),
 		TransactionCount:       transactionCount,
 		TransactionCountSystem: transactionCountSystem,
 		TransactionCountDebug:  transactionCountDebug,
 		BlockMintDuration:      blockMintDuration,
+		ParentHash:             parentHash,
+		UncleHash:              uncleHash,
+		StateRoot:              stateRoot,
+		TransactionsRoot:       transactionsRoot,
+		ReceiptsRoot:           receiptsRoot,
+		LogsBloom:              logsBloom,
+		Miner:                  miner,
+		ExtraData:              extraData,
+		MixDigest:              mixDigest,
+		Nonce:                  nonce,
+		Validator:              validator,
+		Creator:                creator,
+		Attestor:               attestor,
 	}
 }
 
@@ -118,19 +141,29 @@ func (c *DbClient) updateBlockByID(id uint64, block *Block) error {
 		Where("id = ?", id).
 		Updates(map[string]interface{}{
 			"hash":                     block.Hash,
-			"parent_hash":              block.ParentHash,
-			"state_root":               block.StateRoot,
-			"transaction_root":         block.TransactionsRoot,
-			"receipts_root":            block.ReceiptsRoot,
 			"timestamp":                block.Timestamp,
 			"size":                     block.Size,
 			"gas_limit":                block.GasLimit,
 			"gas_used":                 block.GasUsed,
+			"difficulty":               block.Difficulty,
 			"total_difficulty":         block.TotalDifficulty,
 			"transaction_count":        block.TransactionCount,
 			"transaction_count_system": block.TransactionCountSystem,
 			"transaction_count_debug":  block.TransactionCountDebug,
 			"block_mint_duration":      block.BlockMintDuration,
+			"parent_hash":              block.ParentHash,
+			"uncle_hash":               block.UncleHash,
+			"state_root":               block.StateRoot,
+			"transaction_root":         block.TransactionsRoot,
+			"receipts_root":            block.ReceiptsRoot,
+			"logs_bloom":               block.LogsBloom,
+			"miner":                    block.Miner,
+			"extra_data":               block.ExtraData,
+			"mix_digest":               block.MixDigest,
+			"nonce":                    block.Nonce,
+			"validator":                block.Validator,
+			"creator":                  block.Creator,
+			"attestor":                 block.Attestor,
 		})
 	return result.Error
 }
@@ -149,19 +182,29 @@ func (c *DbClient) writeBlocks(newBlocks []*Block, changedBlocks []*Block) error
 			Where("id = ?", block.ID).
 			Updates(map[string]interface{}{
 				"hash":                     block.Hash,
-				"parent_hash":              block.ParentHash,
-				"state_root":               block.StateRoot,
-				"transaction_root":         block.TransactionsRoot,
-				"receipts_root":            block.ReceiptsRoot,
 				"timestamp":                block.Timestamp,
 				"size":                     block.Size,
 				"gas_limit":                block.GasLimit,
 				"gas_used":                 block.GasUsed,
+				"difficulty":               block.Difficulty,
 				"total_difficulty":         block.TotalDifficulty,
 				"transaction_count":        block.TransactionCount,
 				"transaction_count_system": block.TransactionCountSystem,
 				"transaction_count_debug":  block.TransactionCountDebug,
 				"block_mint_duration":      block.BlockMintDuration,
+				"parent_hash":              block.ParentHash,
+				"uncle_hash":               block.UncleHash,
+				"state_root":               block.StateRoot,
+				"transaction_root":         block.TransactionsRoot,
+				"receipts_root":            block.ReceiptsRoot,
+				"logs_bloom":               block.LogsBloom,
+				"miner":                    block.Miner,
+				"extra_data":               block.ExtraData,
+				"mix_digest":               block.MixDigest,
+				"nonce":                    block.Nonce,
+				"validator":                block.Validator,
+				"creator":                  block.Creator,
+				"attestor":                 block.Attestor,
 			})
 		if result.Error != nil {
 			tx.Rollback()

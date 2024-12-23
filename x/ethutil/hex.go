@@ -4,6 +4,8 @@ import (
 	"encoding/hex"
 	"math/big"
 	"strings"
+
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func BigIntToHex(i *big.Int) string {
@@ -33,9 +35,18 @@ func HexToBytes(s string) []byte {
 	if strings.HasPrefix(s, "0x") {
 		ss = strings.TrimPrefix(s, "0x")
 	}
+	if len(ss)%2 == 1 {
+		ss = "0" + ss
+	}
 	bytes, err := hex.DecodeString(ss)
 	if err != nil {
 		panic(err)
 	}
 	return bytes
+}
+
+func PubkeyToAddress(pubkey []byte) []byte {
+	addr := make([]byte, 20)
+	copy(addr[:], crypto.Keccak256(pubkey[1:])[12:])
+	return addr
 }
