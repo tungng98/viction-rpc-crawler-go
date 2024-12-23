@@ -81,4 +81,8 @@ func main() {
 			log.Info().Msg("Migration successful!")
 		}
 	}
+	if invokeArgs.Service != nil {
+		svc := svc.NewServiceController(&log.Logger)
+		svc.Run()
+	}
 }

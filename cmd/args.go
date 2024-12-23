@@ -2,7 +2,8 @@ package cmd
 
 type Args struct {
 	IndexBlockTx   *IndexBlockTxCmd `arg:"subcommand:index" help:"Index BlockHashes and TxHashes and stored in MongoDB"`
-	ManageDatabase *DatabaseCmd     `arg:"subcommand:database" help:""`
+	ManageDatabase *DatabaseCmd     `arg:"subcommand:database" help:"Performance database maintaince"`
+	Service        *ServiceCmd      `arg:"subcommand:service" help:"Run in service mode using predefined configuration"`
 }
 
 type DatabaseCmd struct {
@@ -22,4 +23,8 @@ type IndexBlockTxCmd struct {
 	IncludeTxs  bool   `arg:"--txs" help:"Save transaction data to database"`
 	PostgreSQL  string `arg:"--pgsql" help:"Connection string to PostgreSQL"`
 	RpcUrl      string `arg:"--rpc" help:"Blockchain node RPC endpoint"`
+}
+
+type ServiceCmd struct {
+	Configuration string `arg:"-c,--config" help:"Configuration file contains services definition"`
 }
