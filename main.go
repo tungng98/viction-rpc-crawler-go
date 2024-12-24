@@ -11,6 +11,7 @@ import (
 	"viction-rpc-crawler-go/svc"
 
 	"github.com/alexflint/go-arg"
+	"github.com/rs/zerolog"
 	"github.com/rs/zerolog/log"
 )
 
@@ -81,8 +82,15 @@ func main() {
 			log.Info().Msg("Migration successful!")
 		}
 	}
+	getModuleLogger := func(name string) *zerolog.Logger {
+		moduleLogger := log.Logger.With().Str("module", name).Logger()
+		return &moduleLogger
+	}
 	if invokeArgs.Service != nil {
-		svc := svc.NewServiceController(&log.Logger)
-		svc.Run()
+		controller := svc.NewServiceController(getModuleLogger("Controller"))
+		scheduler := svc.NewScheduleSvc(250, controller, getModuleLogger("Scheduler"))
+		scheduler.Run(false)
+		controller.RegisterService("scheduler", scheduler)
+		controller.Run(true)
 	}
 }

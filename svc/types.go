@@ -10,9 +10,16 @@ const (
 	RETRY_STATE
 )
 
+type BackgroundJob interface {
+	Exec(params map[string]interface{})
+	IsExecuting() bool
+	Controller() ServiceController
+}
+
 type BackgroundService interface {
 	Exec(command string, params map[string]interface{})
-	Start(workerCount uint16)
-	Stop(workerCount uint16)
+	Run(background bool)
+	SetWorker(workerCount uint16)
 	WorkerCount() uint16
+	Controller() ServiceController
 }
