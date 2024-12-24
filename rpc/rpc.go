@@ -7,13 +7,13 @@ import (
 )
 
 func (client *EthClient) GetBlockByNumber2(number *big.Int) (*Block, error) {
-	fn, err := rpcCall[*Block](client, "eth_getBlockByNumber", ethutil.BigIntToHex(number), true)
-	return *fn, err
+	fn, err := rpcCall[Block](client, "eth_getBlockByNumber", ethutil.BigIntToHex(number), true)
+	return fn, err
 }
 
-func (client *EthClient) GetBlockFinalityByNumber(number *big.Int) (uint, error) {
+func (client *EthClient) GetBlockFinalityByNumber(number *big.Int) (*uint, error) {
 	fn, err := rpcCall[uint](client, "eth_getBlockFinalityByNumber", ethutil.BigIntToHex(number))
-	return *fn, err
+	return fn, err
 }
 
 func (client *EthClient) TraceBlockByNumber(number *big.Int) ([]*TraceTransactionResult, error) {
