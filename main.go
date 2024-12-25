@@ -89,8 +89,9 @@ func main() {
 	if invokeArgs.Service != nil {
 		controller := svc.NewServiceController(getModuleLogger("Controller"))
 		scheduler := svc.NewScheduleSvc(250, controller, getModuleLogger("Scheduler"))
-		scheduler.Run(false)
-		controller.RegisterService("scheduler", scheduler)
+		controller.RegisterService(scheduler)
+
+		controller.Exec("set_worker", map[string]interface{}{"service_id": scheduler.ServiceID(), "worker_count": uint16(1)})
 		controller.Run(true)
 	}
 }
