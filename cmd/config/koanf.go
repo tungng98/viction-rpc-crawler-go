@@ -77,6 +77,12 @@ func defaultConfig() *koanf.Koanf {
 				Level:        int8(zerolog.DebugLevel),
 				ConsoleLevel: int8(zerolog.DebugLevel),
 			},
+			Service: &ServiceConfig{
+				Schedule: &ServiceScheduleConfig{},
+				Worker: &JobWorkerConfig{
+					BlockFetcher: 16,
+				},
+			},
 		}, "koanf"),
 		nil,
 	)

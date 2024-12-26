@@ -35,9 +35,10 @@ type BlockIndexerSvc struct {
 }
 
 type BlockIndexerSvcInternal struct {
-	WorkerMainCounter *WorkerCounter
-	WorkerMainCount   uint16
-	WorkerID          uint64
+	WorkerMainCounter  *WorkerCounter
+	WorkerMainCount    uint16
+	WorkerID           uint64
+	IndexerMainCounter *WorkerCounter
 
 	MainChan chan *BlockIndexerCommand
 	MainWait map[string]*sync.WaitGroup
@@ -52,7 +53,8 @@ type BlockIndexerSvcInternal struct {
 func NewBlockIndexerSvc(controller ServiceController, rpc *rpc.EthClient, cache cache.MemoryCache, db *db.DbClient, logger *zerolog.Logger) BlockIndexerSvc {
 	svc := BlockIndexerSvc{
 		i: &BlockIndexerSvcInternal{
-			WorkerMainCounter: &WorkerCounter{},
+			WorkerMainCounter:  &WorkerCounter{},
+			IndexerMainCounter: &WorkerCounter{},
 
 			MainChan: make(chan *BlockIndexerCommand, MAIN_CHAN_CAPACITY),
 			MainWait: map[string]*sync.WaitGroup{},
@@ -107,11 +109,17 @@ func (s BlockIndexerSvc) Exec(command string, params ExecParams) {
 	if command == "exit" {
 		return
 	}
-	msg := &BlockIndexerCommand{
-		Command: command,
-		Params:  params,
+	if command == "index" {
+		if s.i.IndexerMainCounter.Value() == 0 {
+			msg := &BlockIndexerCommand{
+				Command: command,
+				Params:  params,
+			}
+			s.i.MainChan <- msg
+		} else {
+			s.i.Logger.Info().Msg("Main indexer is running. Exec ignored.")
+		}
 	}
-	s.i.MainChan <- msg
 }
 
 func (s *BlockIndexerSvc) process(workerID uint64) {
@@ -122,11 +130,13 @@ func (s *BlockIndexerSvc) process(workerID uint64) {
 		msg := <-s.i.MainChan
 		switch msg.Command {
 		case "index":
-			from := msg.Params["from"].(*big.Int)
-			to := msg.Params["to"].(*big.Int)
-			batchSize := msg.Params["batch_size"].(int)
-			useCheckpointBlock := msg.Params["use_checkpoint_block"].(bool)
+			s.i.IndexerMainCounter.Increase()
+			from := msg.Params.Get("from", big.NewInt(1)).(*big.Int)
+			to := msg.Params.Get("to", big.NewInt(1000000000)).(*big.Int)
+			batchSize := msg.Params.Get("batch_size", 1).(int)
+			useCheckpointBlock := msg.Params.Get("use_checkpoint_block", true).(bool)
 			s.indexBlock(from, to, batchSize, useCheckpointBlock)
+			s.i.IndexerMainCounter.Decrease()
 		case "exit":
 			status = EXIT_STATE
 		}
@@ -149,6 +159,10 @@ func (s *BlockIndexerSvc) indexBlock(from *big.Int, to *big.Int, batchSize int, 
 	endBlock := new(big.Int).Set(to)
 	for startBlockNumber.Cmp(endBlock) <= 0 {
 		endBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(batchSize)-1))
+		endBlockNumberMod := new(big.Int).Mod(endBlockNumber, big.NewInt(int64(batchSize)))
+		if endBlockNumberMod.Cmp(big.NewInt(0)) != 0 {
+			endBlockNumber = new(big.Int).Sub(endBlockNumber, endBlockNumberMod)
+		}
 		if endBlockNumber.Cmp(endBlock) > 0 {
 			endBlockNumber.Set(endBlock)
 		}

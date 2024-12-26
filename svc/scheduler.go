@@ -55,6 +55,15 @@ func NewScheduleSvc(intervalMs int64, controller ServiceController, logger *zero
 	return svc
 }
 
+func (s ScheduleSvc) AddJob(jobID string, intervalMs int64, serviceID string, command string, params ExecParams) {
+	s.i.Jobs[jobID] = &JobMetadata{
+		IntervalMs: intervalMs,
+		ServiceID:  serviceID,
+		Command:    command,
+		Params:     params,
+	}
+}
+
 func (s ScheduleSvc) ServiceID() string {
 	return "Scheduler"
 }

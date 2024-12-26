@@ -122,8 +122,8 @@ func (s BlockFetcherSvc) Exec(command string, params ExecParams) {
 				index++
 			}
 		}
-		s.i.WorkerQueueCounter.Lock()
-		{
+		func() {
+			s.i.WorkerQueueCounter.Lock()
 			defer s.i.WorkerQueueCounter.Unlock()
 			if _, ok := s.i.QueueWait[requestID]; ok {
 				s.i.Logger.Warn().Msgf("Request existed %s", requestID)
@@ -131,7 +131,7 @@ func (s BlockFetcherSvc) Exec(command string, params ExecParams) {
 			}
 			s.i.QueueWait[requestID] = new(sync.WaitGroup)
 			s.i.QueueWait[requestID].Add(len(blockNumbers))
-		}
+		}()
 		queueMsg := &BlockFetcherQueueCommand{
 			RequestID:    requestID,
 			BlockNumbers: blockNumbers,
@@ -169,7 +169,7 @@ func (s *BlockFetcherSvc) process(workerID uint64) {
 				Error:       err,
 			}
 			cache.SetArrayItem(s.i.SharedCache, requestID, index, result)
-			s.i.Logger.Info().Uint64("WorkerID", workerID).Msgf("Fetched block %d.", blockNumber.Uint64())
+			s.i.Logger.Debug().Uint64("WorkerID", workerID).Msgf("Fetched block %d.", blockNumber.Uint64())
 			s.i.QueueWait[requestID].Done()
 		case "exit":
 			status = EXIT_STATE
@@ -180,14 +180,14 @@ func (s *BlockFetcherSvc) process(workerID uint64) {
 }
 
 func (s *BlockFetcherSvc) processQueue(workerID uint64) {
-	s.i.WorkerQueueCounter.Lock()
-	{
+	func() {
+		s.i.WorkerQueueCounter.Lock()
 		defer s.i.WorkerQueueCounter.Unlock()
 		if s.i.WorkerQueueCounter.ValueNoLock() > 0 {
 			return
 		}
 		s.i.WorkerQueueCounter.IncreaseNoLock()
-	}
+	}()
 
 	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("BlockFetcher ProcessQueue started.")
 	status := INIT_STATE
@@ -211,15 +211,15 @@ func (s *BlockFetcherSvc) processQueue(workerID uint64) {
 			msg.Returns.Done()
 		}
 		s.i.Logger.Info().Msgf("Fetched request %s in %s.", msg.RequestID, time.Since(startTime))
-		s.i.WorkerQueueCounter.Lock()
-		{
+		func() {
+			s.i.WorkerQueueCounter.Lock()
 			defer s.i.WorkerQueueCounter.Unlock()
 			delete(s.i.QueueWait, msg.RequestID)
 			if len(s.i.QueueWait) == 0 {
 				status = EXIT_STATE
 			}
 			s.i.WorkerQueueCounter.DecreaseNoLock()
-		}
+		}()
 	}
 	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("BlockFetcher ProcessQueue exited.")
 }

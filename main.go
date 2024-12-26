@@ -102,6 +102,11 @@ func main() {
 		}
 		memCache := cache.NewMemoryCache()
 		scheduler := svc.NewScheduleSvc(250, controller, getModuleLogger("Scheduler"))
+		if cfg.Service.Schedule.IndexBlockInterval > 0 {
+			scheduler.AddJob("index_block", cfg.Service.Schedule.IndexBlockInterval, "BlockIndexer", "index", svc.ExecParams{
+				"batch_size": cfg.Service.Schedule.IndexBlockBatch,
+			})
+		}
 		controller.RegisterService(scheduler)
 		blockFetcher := svc.NewBlockFetcherSvc(controller, rpcClient, memCache, getModuleLogger("BlockFetcher"))
 		controller.RegisterService(blockFetcher)
@@ -109,7 +114,7 @@ func main() {
 		controller.RegisterService(blockIndexer)
 
 		controller.Exec("set_worker", map[string]interface{}{"service_id": scheduler.ServiceID(), "worker_count": uint16(1)})
-		controller.Exec("set_worker", map[string]interface{}{"service_id": blockFetcher.ServiceID(), "worker_count": uint16(8)})
+		controller.Exec("set_worker", map[string]interface{}{"service_id": blockFetcher.ServiceID(), "worker_count": cfg.Service.Worker.BlockFetcher})
 		controller.Exec("set_worker", map[string]interface{}{"service_id": blockIndexer.ServiceID(), "worker_count": uint16(1)})
 		controller.Run(true)
 	}

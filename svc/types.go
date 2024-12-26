@@ -27,14 +27,29 @@ type BackgroundService interface {
 
 type ExecParams map[string]interface{}
 
-func (p *ExecParams) ExpectReturns() {
-	waitGroup := new(sync.WaitGroup)
-	waitGroup.Add(1)
-	(*p)["returns"] = waitGroup
+func (p ExecParams) Get(key string, def interface{}) interface{} {
+	if val, ok := p[key]; ok {
+		return val
+	}
+	return def
 }
 
-func (p *ExecParams) WaitForReturns() {
-	waitGroup := (*p)["returns"].(*sync.WaitGroup)
+func (p ExecParams) Set(key string, val interface{}) {
+	p[key] = val
+}
+
+func (p ExecParams) Delete(key string) {
+	delete(p, key)
+}
+
+func (p ExecParams) ExpectReturns() {
+	waitGroup := new(sync.WaitGroup)
+	waitGroup.Add(1)
+	p["returns"] = waitGroup
+}
+
+func (p ExecParams) WaitForReturns() {
+	waitGroup := p["returns"].(*sync.WaitGroup)
 	waitGroup.Wait()
 }
 

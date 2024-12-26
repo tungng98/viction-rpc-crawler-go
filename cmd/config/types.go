@@ -7,6 +7,7 @@ type RootConfig struct {
 	Blockchain *BlockchainConfig `koanf:"blockchain"`
 	Database   *DatabaseConfig   `koanf:"database"`
 	ZeroLog    *ZeroLogConfig    `koanf:"zerolog"`
+	Service    *ServiceConfig    `koanf:"service"`
 }
 
 type DatabaseConfig struct {
@@ -20,4 +21,18 @@ type BlockchainConfig struct {
 type ZeroLogConfig struct {
 	Level        int8 `koanf:"level"`
 	ConsoleLevel int8 `koanf:"consoleLevel"`
+}
+
+type ServiceConfig struct {
+	Schedule *ServiceScheduleConfig `koanf:"schedule"`
+	Worker   *JobWorkerConfig       `koanf:"worker"`
+}
+
+type ServiceScheduleConfig struct {
+	IndexBlockInterval int64 `koanf:"indexBlockInterval"`
+	IndexBlockBatch    int   `koanf:"indexBlockBatch"`
+}
+
+type JobWorkerConfig struct {
+	BlockFetcher uint16 `koanf:"blockFetcher"`
 }
