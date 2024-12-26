@@ -53,8 +53,8 @@ func NewBlockFetcherSvc(controller ServiceController, rpc *rpc.EthClient, cache 
 			WorkerMainCounter:  &WorkerCounter{},
 			WorkerQueueCounter: &WorkerCounter{},
 
-			MainChan:  make(chan *BlockFetcherCommand, 256),
-			QueueChan: make(chan *BlockFetcherQueueCommand, 16),
+			MainChan:  make(chan *BlockFetcherCommand, MAIN_CHAN_CAPACITY),
+			QueueChan: make(chan *BlockFetcherQueueCommand, SECOND_CHAN_CAPACITY),
 			QueueWait: map[string]*sync.WaitGroup{},
 
 			Controller:  controller,
@@ -76,8 +76,8 @@ func (s BlockFetcherSvc) Controller() ServiceController {
 
 func (s BlockFetcherSvc) SetWorker(workerCount uint16) {
 	s.i.WorkerMainCounter.Lock()
+	defer s.i.WorkerMainCounter.Unlock()
 	if s.i.WorkerMainCounter.ValueNoLock() != s.i.WorkerMainCount {
-		s.i.WorkerMainCounter.Unlock()
 		return
 	}
 	if workerCount > s.i.WorkerMainCounter.ValueNoLock() {
@@ -96,7 +96,6 @@ func (s BlockFetcherSvc) SetWorker(workerCount uint16) {
 		}
 		s.i.WorkerMainCount = workerCount
 	}
-	s.i.WorkerMainCounter.Unlock()
 }
 
 func (s BlockFetcherSvc) WorkerCount() uint16 {
@@ -124,14 +123,15 @@ func (s BlockFetcherSvc) Exec(command string, params ExecParams) {
 			}
 		}
 		s.i.WorkerQueueCounter.Lock()
-		if _, ok := s.i.QueueWait[requestID]; ok {
-			s.i.Logger.Warn().Msgf("Request existed %s", requestID)
-			s.i.WorkerQueueCounter.Unlock()
-			return
+		{
+			defer s.i.WorkerQueueCounter.Unlock()
+			if _, ok := s.i.QueueWait[requestID]; ok {
+				s.i.Logger.Warn().Msgf("Request existed %s", requestID)
+				return
+			}
+			s.i.QueueWait[requestID] = new(sync.WaitGroup)
+			s.i.QueueWait[requestID].Add(len(blockNumbers))
 		}
-		s.i.QueueWait[requestID] = new(sync.WaitGroup)
-		s.i.QueueWait[requestID].Add(len(blockNumbers))
-		s.i.WorkerQueueCounter.Unlock()
 		queueMsg := &BlockFetcherQueueCommand{
 			RequestID:    requestID,
 			BlockNumbers: blockNumbers,
@@ -169,7 +169,7 @@ func (s *BlockFetcherSvc) process(workerID uint64) {
 				Error:       err,
 			}
 			cache.SetArrayItem(s.i.SharedCache, requestID, index, result)
-			s.i.Logger.Info().Uint64("WorkerID", workerID).Msgf("Fetched block %d", blockNumber.Uint64())
+			s.i.Logger.Info().Uint64("WorkerID", workerID).Msgf("Fetched block %d.", blockNumber.Uint64())
 			s.i.QueueWait[requestID].Done()
 		case "exit":
 			status = EXIT_STATE
@@ -181,12 +181,13 @@ func (s *BlockFetcherSvc) process(workerID uint64) {
 
 func (s *BlockFetcherSvc) processQueue(workerID uint64) {
 	s.i.WorkerQueueCounter.Lock()
-	if s.i.WorkerQueueCounter.ValueNoLock() > 0 {
-		s.i.WorkerQueueCounter.Unlock()
-		return
+	{
+		defer s.i.WorkerQueueCounter.Unlock()
+		if s.i.WorkerQueueCounter.ValueNoLock() > 0 {
+			return
+		}
+		s.i.WorkerQueueCounter.IncreaseNoLock()
 	}
-	s.i.WorkerQueueCounter.IncreaseNoLock()
-	s.i.WorkerQueueCounter.Unlock()
 
 	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("BlockFetcher ProcessQueue started.")
 	status := INIT_STATE
@@ -209,14 +210,16 @@ func (s *BlockFetcherSvc) processQueue(workerID uint64) {
 		if msg.Returns != nil {
 			msg.Returns.Done()
 		}
-		s.i.Logger.Info().Msgf("Fetched request %s in %s", msg.RequestID, time.Since(startTime))
+		s.i.Logger.Info().Msgf("Fetched request %s in %s.", msg.RequestID, time.Since(startTime))
 		s.i.WorkerQueueCounter.Lock()
-		delete(s.i.QueueWait, msg.RequestID)
-		if len(s.i.QueueWait) == 0 {
-			status = EXIT_STATE
+		{
+			defer s.i.WorkerQueueCounter.Unlock()
+			delete(s.i.QueueWait, msg.RequestID)
+			if len(s.i.QueueWait) == 0 {
+				status = EXIT_STATE
+			}
+			s.i.WorkerQueueCounter.DecreaseNoLock()
 		}
-		s.i.WorkerQueueCounter.DecreaseNoLock()
-		s.i.WorkerQueueCounter.Unlock()
 	}
 	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("BlockFetcher ProcessQueue exited.")
 }

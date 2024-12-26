@@ -35,7 +35,7 @@ func NewServiceController(logger *zerolog.Logger) ServiceController {
 
 			WorkerMainCounter: &WorkerCounter{},
 
-			MainChan: make(chan *ServiceControllerCommand, 16),
+			MainChan: make(chan *ServiceControllerCommand, MAIN_CHAN_CAPACITY),
 			ExitChan: make(chan bool),
 
 			Logger: logger,

@@ -116,7 +116,7 @@ func (s *IndexBlockTxService) Exec() {
 			Int("NewTxsCount", len(batchData.NewTxs)).
 			Int("ChangedTxsCount", len(batchData.ChangedTxs)).
 			Int("IssuesCount", len(batchData.Issues)).
-			Msgf("Persisted Batch #%d-%d in %v", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
+			Msgf("Persisted Batch #%d-%d in %v.", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
 		startBlockNumber.Set(nextStartBlockNumber)
 	}
 }
@@ -140,7 +140,7 @@ func (s *IndexBlockTxService) getBlockData(startBlockNumber *big.Int, endBlockNu
 		s.workers.Equneue(new(big.Int).Add(startBlockNumber, big.NewInt(int64(i))), i)
 	}
 	s.workers.ChanCompleteSignal.Wait()
-	s.Logger.Info().Msgf("Fetched Batch #%d-%d in %v", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
+	s.Logger.Info().Msgf("Fetched Batch #%d-%d in %v.", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
 	return s.workers.BlockData, s.workers.Error
 }
 

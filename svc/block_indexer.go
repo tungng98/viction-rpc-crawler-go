@@ -54,7 +54,7 @@ func NewBlockIndexerSvc(controller ServiceController, rpc *rpc.EthClient, cache 
 		i: &BlockIndexerSvcInternal{
 			WorkerMainCounter: &WorkerCounter{},
 
-			MainChan: make(chan *BlockIndexerCommand, 256),
+			MainChan: make(chan *BlockIndexerCommand, MAIN_CHAN_CAPACITY),
 			MainWait: map[string]*sync.WaitGroup{},
 
 			Controller:  controller,
@@ -77,8 +77,8 @@ func (s BlockIndexerSvc) Controller() ServiceController {
 
 func (s BlockIndexerSvc) SetWorker(workerCount uint16) {
 	s.i.WorkerMainCounter.Lock()
+	defer s.i.WorkerMainCounter.Unlock()
 	if s.i.WorkerMainCounter.ValueNoLock() != s.i.WorkerMainCount {
-		s.i.WorkerMainCounter.Unlock()
 		return
 	}
 	if workerCount > s.i.WorkerMainCounter.ValueNoLock() {
@@ -97,7 +97,6 @@ func (s BlockIndexerSvc) SetWorker(workerCount uint16) {
 		}
 		s.i.WorkerMainCount = workerCount
 	}
-	s.i.WorkerMainCounter.Unlock()
 }
 
 func (s BlockIndexerSvc) WorkerCount() uint16 {
@@ -192,7 +191,7 @@ func (s *BlockIndexerSvc) indexBlock(from *big.Int, to *big.Int, batchSize int, 
 			Int("ChangedBlocksCount", len(batchData.ChangedBlocks)).
 			Int("TxsCount", batchData.TransactionCount).
 			Int("IssuesCount", len(batchData.Issues)).
-			Msgf("Persisted Batch #%d-%d in %v", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
+			Msgf("Persisted Batch #%d-%d in %v.", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
 		startBlockNumber.Set(nextStartBlockNumber)
 	}
 }

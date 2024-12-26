@@ -45,7 +45,7 @@ func NewScheduleSvc(intervalMs int64, controller ServiceController, logger *zero
 
 			WorkerMainCounter: &WorkerCounter{},
 
-			MainChan: make(chan *ScheduleSvcCommand, 16),
+			MainChan: make(chan *ScheduleSvcCommand, MAIN_CHAN_CAPACITY),
 
 			IntervalMs: intervalMs,
 			Controller: controller,
@@ -65,8 +65,8 @@ func (s ScheduleSvc) Controller() ServiceController {
 
 func (s ScheduleSvc) SetWorker(workerCount uint16) {
 	s.i.WorkerMainCounter.Lock()
+	defer s.i.WorkerMainCounter.Unlock()
 	if s.i.WorkerMainCounter.ValueNoLock() != s.i.WorkerMainCount {
-		s.i.WorkerMainCounter.Unlock()
 		return
 	}
 	if workerCount > 0 && s.i.WorkerMainCounter.ValueNoLock() == 0 {
@@ -90,7 +90,6 @@ func (s ScheduleSvc) SetWorker(workerCount uint16) {
 		}
 		s.i.MainChan <- cmd
 	}
-	s.i.WorkerMainCounter.Unlock()
 }
 
 func (s ScheduleSvc) WorkerCount() uint16 {

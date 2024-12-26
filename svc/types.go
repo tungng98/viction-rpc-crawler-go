@@ -12,6 +12,11 @@ const (
 	RETRY_STATE
 )
 
+const (
+	MAIN_CHAN_CAPACITY   = 256
+	SECOND_CHAN_CAPACITY = 16
+)
+
 type BackgroundService interface {
 	ServiceID() string
 	Controller() ServiceController
@@ -40,9 +45,8 @@ type WorkerCounter struct {
 
 func (c *WorkerCounter) Value() uint16 {
 	c.lock.Lock()
-	count := c.count
-	c.lock.Unlock()
-	return count
+	defer c.lock.Unlock()
+	return c.count
 }
 
 func (c *WorkerCounter) ValueNoLock() uint16 {
@@ -51,8 +55,8 @@ func (c *WorkerCounter) ValueNoLock() uint16 {
 
 func (c *WorkerCounter) Set(newCount uint16) {
 	c.lock.Lock()
+	defer c.lock.Unlock()
 	c.count = newCount
-	c.lock.Unlock()
 }
 
 func (c *WorkerCounter) SetNoLock(newCount uint16) {
@@ -61,8 +65,8 @@ func (c *WorkerCounter) SetNoLock(newCount uint16) {
 
 func (c *WorkerCounter) Increase() {
 	c.lock.Lock()
+	defer c.lock.Unlock()
 	c.count++
-	c.lock.Unlock()
 }
 
 func (c *WorkerCounter) IncreaseNoLock() {
@@ -71,8 +75,8 @@ func (c *WorkerCounter) IncreaseNoLock() {
 
 func (c *WorkerCounter) Decrease() {
 	c.lock.Lock()
+	defer c.lock.Unlock()
 	c.count--
-	c.lock.Unlock()
 }
 
 func (c *WorkerCounter) DecreaseNoLock() {
