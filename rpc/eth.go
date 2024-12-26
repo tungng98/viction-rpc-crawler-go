@@ -27,6 +27,10 @@ func Connect(rpcUrl string) (*EthClient, error) {
 	return &EthClient{e, r}, nil
 }
 
+func (client *EthClient) GetBlockNumber() (uint64, error) {
+	return client.e.BlockNumber(context.TODO())
+}
+
 func (client *EthClient) GetBlockByNumber(number *big.Int) (*types.Block, error) {
 	return client.e.BlockByNumber(context.TODO(), number)
 }

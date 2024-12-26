@@ -72,6 +72,10 @@ func (c *DbClient) GetBlock(id uint64) (*Block, error) {
 	return c.findBlock(id)
 }
 
+func (c *DbClient) GetBlocks(ids []uint64) ([]*Block, error) {
+	return c.findBlocks(ids)
+}
+
 func (c *DbClient) GetBlockByHash(hash string) (*Block, error) {
 	return c.findBlockByHash(hash)
 }
@@ -110,6 +114,14 @@ func (c *DbClient) findBlock(id uint64) (*Block, error) {
 		return nil, nil
 	}
 	return doc, result.Error
+}
+
+func (c *DbClient) findBlocks(ids []uint64) ([]*Block, error) {
+	var docs []*Block
+	result := c.d.Model(&Block{}).
+		Where("id IN ?", ids).
+		Find(&docs)
+	return docs, result.Error
 }
 
 func (c *DbClient) findBlockByHash(hash string) (*Block, error) {

@@ -8,6 +8,7 @@ import (
 	"viction-rpc-crawler-go/rpc"
 
 	"github.com/rs/zerolog"
+	"golang.org/x/exp/slices"
 )
 
 type BlockFetcherCommand struct {
@@ -103,9 +104,6 @@ func (s BlockFetcherSvc) WorkerCount() uint16 {
 }
 
 func (s BlockFetcherSvc) Exec(command string, params ExecParams) {
-	if command == "exit" {
-		return
-	}
 	if command == "get_blocks" || command == "get_blocks_range" {
 		requestID := params["request_id"].(string)
 		blockNumbers := []*big.Int{}
@@ -144,11 +142,16 @@ func (s BlockFetcherSvc) Exec(command string, params ExecParams) {
 		go s.processQueue(s.i.WorkerID)
 		return
 	}
-	msg := &BlockFetcherCommand{
-		Command: command,
-		Params:  params,
+	valid_commands := []string{
+		"get_block",
 	}
-	s.i.MainChan <- msg
+	if slices.Contains(valid_commands, command) {
+		msg := &BlockFetcherCommand{
+			Command: command,
+			Params:  params,
+		}
+		s.i.MainChan <- msg
+	}
 }
 
 func (s *BlockFetcherSvc) process(workerID uint64) {
@@ -159,6 +162,20 @@ func (s *BlockFetcherSvc) process(workerID uint64) {
 		msg := <-s.i.MainChan
 		switch msg.Command {
 		case "get_block":
+			requestID := msg.Params["request_id"].(string)
+			blockNumber := msg.Params["block_number"].(*big.Int)
+			block, err := s.i.Rpc.GetBlockByNumber2(blockNumber)
+			result := &GetBlockResult{
+				BlockNumber: blockNumber,
+				Data:        block,
+				Error:       err,
+			}
+			cache.SetObject(s.i.SharedCache, requestID, result)
+			s.i.Logger.Debug().Uint64("WorkerID", workerID).Msgf("Fetched block %d.", blockNumber.Uint64())
+			if ret, ok := msg.Params["returns"]; ok {
+				ret.(*sync.WaitGroup).Done()
+			}
+		case "get_blocks_item":
 			requestID := msg.Params["request_id"].(string)
 			index := msg.Params["index"].(int)
 			blockNumber := msg.Params["block_number"].(*big.Int)
@@ -196,7 +213,7 @@ func (s *BlockFetcherSvc) processQueue(workerID uint64) {
 		cache.AllocArray(s.i.SharedCache, msg.RequestID, len(msg.BlockNumbers))
 		for i := 0; i < len(msg.BlockNumbers); i++ {
 			msgi := &BlockFetcherCommand{
-				Command: "get_block",
+				Command: "get_blocks_item",
 				Params: ExecParams{
 					"request_id":   msg.RequestID,
 					"index":        i,

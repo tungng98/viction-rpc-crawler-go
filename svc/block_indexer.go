@@ -27,6 +27,7 @@ type BlockIndexerBatchDataResult struct {
 	ChangedBlocks    []*db.Block
 	TransactionCount int
 	Issues           []*db.Issue
+	Reorg            bool
 	Errors           []*GetBlockResult
 }
 
@@ -132,7 +133,7 @@ func (s *BlockIndexerSvc) process(workerID uint64) {
 		case "index":
 			s.i.IndexerMainCounter.Increase()
 			from := msg.Params.Get("from", big.NewInt(1)).(*big.Int)
-			to := msg.Params.Get("to", big.NewInt(1000000000)).(*big.Int)
+			to := msg.Params.Get("to", big.NewInt(999999999)).(*big.Int)
 			batchSize := msg.Params.Get("batch_size", 1).(int)
 			useCheckpointBlock := msg.Params.Get("use_checkpoint_block", true).(bool)
 			s.indexBlock(from, to, batchSize, useCheckpointBlock)
@@ -145,7 +146,7 @@ func (s *BlockIndexerSvc) process(workerID uint64) {
 	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("BlockIndexer Process exited.")
 }
 
-func (s *BlockIndexerSvc) indexBlock(from *big.Int, to *big.Int, batchSize int, useCheckpointBlock bool) {
+func (s *BlockIndexerSvc) indexBlock(from, to *big.Int, batchSize int, useCheckpointBlock bool) {
 	startBlockNumber := new(big.Int).Set(from)
 	if useCheckpointBlock {
 		highestBlock, err := s.i.Db.GetHighestIndexBlock()
@@ -157,14 +158,25 @@ func (s *BlockIndexerSvc) indexBlock(from *big.Int, to *big.Int, batchSize int, 
 		}
 	}
 	endBlock := new(big.Int).Set(to)
-	for startBlockNumber.Cmp(endBlock) <= 0 {
-		endBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(batchSize)-1))
-		endBlockNumberMod := new(big.Int).Mod(endBlockNumber, big.NewInt(int64(batchSize)))
-		if endBlockNumberMod.Cmp(big.NewInt(0)) != 0 {
-			endBlockNumber = new(big.Int).Sub(endBlockNumber, endBlockNumberMod)
-		}
+	head, err := s.i.Rpc.GetBlockNumber()
+	if err != nil {
+		panic(err)
+	}
+	if to.Uint64() > head {
+		endBlock.SetUint64(head)
+	}
+	for startBlockNumber.Cmp(endBlock) < 0 {
+		endBlockRounding := true
+		endBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(batchSize)))
 		if endBlockNumber.Cmp(endBlock) > 0 {
 			endBlockNumber.Set(endBlock)
+			endBlockRounding = false
+		}
+		if endBlockRounding {
+			endBlockNumberMod := new(big.Int).Mod(endBlockNumber, big.NewInt(int64(batchSize)))
+			if endBlockNumberMod.Cmp(big.NewInt(0)) != 0 {
+				endBlockNumber = new(big.Int).Sub(endBlockNumber, endBlockNumberMod)
+			}
 		}
 
 		requestId := fmt.Sprintf("get_blocks_range_%d_%d", startBlockNumber.Uint64(), endBlockNumber.Uint64())
@@ -178,10 +190,15 @@ func (s *BlockIndexerSvc) indexBlock(from *big.Int, to *big.Int, batchSize int, 
 		getBlockDataParams.WaitForReturns()
 
 		getBlockResults := cache.GetArray[*GetBlockResult](s.i.SharedCache, requestId)
+		cache.DeleteArray(s.i.SharedCache, requestId)
 		startTime := time.Now()
 		batchData, err := s.prepareBatchData(s.i.Db, getBlockResults)
 		if err != nil {
 			panic(err)
+		}
+		if batchData.Reorg {
+			startBlockNumber = new(big.Int).Sub(startBlockNumber, big.NewInt(10))
+			continue
 		}
 		if len(batchData.NewBlocks)+len(batchData.ChangedBlocks) > 0 {
 			err = s.i.Db.SaveBlocks(batchData.NewBlocks, batchData.ChangedBlocks)
@@ -195,10 +212,11 @@ func (s *BlockIndexerSvc) indexBlock(from *big.Int, to *big.Int, batchSize int, 
 				panic(err)
 			}
 		}
-		nextStartBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(len(getBlockResults))))
-		err = s.i.Db.SaveHighestIndexBlock(nextStartBlockNumber)
-		if err != nil {
-			panic(err)
+		if useCheckpointBlock {
+			err = s.i.Db.SaveHighestIndexBlock(endBlockNumber)
+			if err != nil {
+				panic(err)
+			}
 		}
 		s.i.Logger.Info().
 			Int("NewBlocksCount", len(batchData.NewBlocks)).
@@ -206,7 +224,7 @@ func (s *BlockIndexerSvc) indexBlock(from *big.Int, to *big.Int, batchSize int, 
 			Int("TxsCount", batchData.TransactionCount).
 			Int("IssuesCount", len(batchData.Issues)).
 			Msgf("Persisted Batch #%d-%d in %v.", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
-		startBlockNumber.Set(nextStartBlockNumber)
+		startBlockNumber.Set(endBlockNumber)
 	}
 }
 
@@ -218,29 +236,36 @@ func (s *BlockIndexerSvc) prepareBatchData(dbc *db.DbClient, getBlockResults []*
 		Errors:        []*GetBlockResult{},
 	}
 
-	blockHashes := []string{}
+	blockIDs := []uint64{}
 	issues := []*db.Issue{}
 	for _, getBlock := range getBlockResults {
 		if getBlock.Error != nil {
 			result.Errors = append(result.Errors, getBlock)
 			continue
 		}
-		blockHashes = append(blockHashes, getBlock.Data.Hash.Hex())
+		blockIDs = append(blockIDs, getBlock.BlockNumber.Uint64())
 	}
 
 	newBlockMap := make(map[uint64]*db.Block)
 	changedBlockMap := make(map[uint64]*db.Block)
-	changedBlocks, err := dbc.GetBlocksByHashes(blockHashes)
+	changedBlocks, err := dbc.GetBlocks(blockIDs)
 	if err != nil {
 		return nil, err
 	}
 	for _, block := range changedBlocks {
 		changedBlockMap[block.ID] = block
 	}
-	for _, getBlock := range getBlockResults {
+	for i, getBlock := range getBlockResults {
 		block := getBlock.Data
 		blockNumber := block.Number.BigInt()
 		blockHash := block.Hash.Hex()
+		if i == 0 {
+			if cblock, ok := changedBlockMap[blockNumber.Uint64()]; ok {
+				if cblock.Hash != blockHash {
+					result.Reorg = true
+				}
+			}
+		}
 		txCount := uint16(len(block.Transactions))
 		result.TransactionCount += int(txCount)
 		systemTxCount := uint16(0)
@@ -255,21 +280,15 @@ func (s *BlockIndexerSvc) prepareBatchData(dbc *db.DbClient, getBlockResults []*
 		}
 
 		if cblock, ok := changedBlockMap[blockNumber.Uint64()]; ok {
-			if cblock.Hash != blockHash {
+			if cblock.Hash == blockHash {
+				delete(changedBlockMap, blockNumber.Uint64())
+			} else {
 				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
 				issues = append(issues, issue)
+				s.copyBlockProperties(block, cblock)
+				cblock.TransactionCount.Scan(&txCount)
+				cblock.TransactionCountSystem.Scan(&systemTxCount)
 			}
-			s.copyBlockProperties(block, cblock)
-			cblock.TransactionCount.Scan(&txCount)
-			cblock.TransactionCountSystem.Scan(&systemTxCount)
-		} else if nblock, ok := newBlockMap[blockNumber.Uint64()]; ok {
-			if nblock.Hash != blockHash {
-				issue := db.NewReorgBlockIssue(blockNumber.Uint64(), cblock.Hash, blockHash)
-				issues = append(issues, issue)
-			}
-			s.copyBlockProperties(block, nblock)
-			nblock.TransactionCount.Scan(&txCount)
-			nblock.TransactionCountSystem.Scan(&systemTxCount)
 		} else {
 			nblock := &db.Block{ID: blockNumber.Uint64()}
 			s.copyBlockProperties(block, nblock)
