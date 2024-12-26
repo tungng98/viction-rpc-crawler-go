@@ -136,7 +136,7 @@ func (s *ScheduleSvc) processInterval(workerID uint64) {
 			job := s.i.Jobs[jobID]
 			if job.nextExecution < currentTimeMs {
 				s.i.Controller.ExecService(job.ServiceID, job.Command, job.Params)
-				job.nextExecution = currentTimeMs + job.IntervalMs
+				job.nextExecution = currentTimeMs - (currentTimeMs % job.IntervalMs) + job.IntervalMs
 			}
 		}
 		time.Sleep(time.Duration(s.i.IntervalMs * int64(time.Millisecond)))
