@@ -17,7 +17,20 @@ type BackgroundService interface {
 	Controller() ServiceController
 	SetWorker(workerCount uint16)
 	WorkerCount() uint16
-	Exec(command string, params map[string]interface{})
+	Exec(command string, params ExecParams)
+}
+
+type ExecParams map[string]interface{}
+
+func (p *ExecParams) ExpectReturns() {
+	waitGroup := new(sync.WaitGroup)
+	waitGroup.Add(1)
+	(*p)["returns"] = waitGroup
+}
+
+func (p *ExecParams) WaitForReturns() {
+	waitGroup := (*p)["returns"].(*sync.WaitGroup)
+	waitGroup.Wait()
 }
 
 type WorkerCounter struct {
@@ -52,10 +65,18 @@ func (c *WorkerCounter) Increase() {
 	c.lock.Unlock()
 }
 
+func (c *WorkerCounter) IncreaseNoLock() {
+	c.count++
+}
+
 func (c *WorkerCounter) Decrease() {
 	c.lock.Lock()
-	c.count++
+	c.count--
 	c.lock.Unlock()
+}
+
+func (c *WorkerCounter) DecreaseNoLock() {
+	c.count--
 }
 
 func (c *WorkerCounter) Lock() {

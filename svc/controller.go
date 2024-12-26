@@ -7,7 +7,7 @@ import (
 type ServiceControllerCommand struct {
 	ServiceID string
 	Command   string
-	Params    map[string]interface{}
+	Params    ExecParams
 	ExecCount uint16
 }
 
@@ -94,7 +94,7 @@ func (s ServiceController) WorkerCount() uint16 {
 	return s.i.WorkerMainCounter.ValueNoLock()
 }
 
-func (s ServiceController) Exec(command string, params map[string]interface{}) {
+func (s ServiceController) Exec(command string, params ExecParams) {
 	msg := &ServiceControllerCommand{
 		ServiceID: s.ServiceID(),
 		Command:   command,
@@ -104,7 +104,7 @@ func (s ServiceController) Exec(command string, params map[string]interface{}) {
 	s.i.MainChan <- msg
 }
 
-func (s ServiceController) ExecService(serviceID, command string, params map[string]interface{}) {
+func (s ServiceController) ExecService(serviceID, command string, params ExecParams) {
 	msg := &ServiceControllerCommand{
 		ServiceID: serviceID,
 		Command:   command,
@@ -115,8 +115,8 @@ func (s ServiceController) ExecService(serviceID, command string, params map[str
 }
 
 func (s *ServiceController) process(workerID uint64) {
-	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("Controller Process started.")
 	s.i.WorkerMainCounter.Increase()
+	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("Controller Process started.")
 	status := INIT_STATE
 	for status != EXIT_STATE {
 		msg := <-s.i.MainChan

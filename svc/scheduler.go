@@ -12,7 +12,7 @@ type JobMetadata struct {
 	IntervalMs int64
 	ServiceID  string
 	Command    string
-	Params     map[string]interface{}
+	Params     ExecParams
 }
 
 type ScheduleSvcCommand struct {
@@ -97,13 +97,14 @@ func (s ScheduleSvc) WorkerCount() uint16 {
 	return s.i.WorkerMainCounter.ValueNoLock()
 }
 
-func (s ScheduleSvc) Exec(command string, params map[string]interface{}) {
+func (s ScheduleSvc) Exec(command string, params ExecParams) {
 	if command == "exit" {
 		return
 	}
 }
 
 func (s *ScheduleSvc) process(workerID uint64) {
+	s.i.WorkerMainCounter.Increase()
 	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("Scheduler Process started.")
 	status := INIT_STATE
 	for status != EXIT_STATE {
@@ -119,6 +120,7 @@ func (s *ScheduleSvc) process(workerID uint64) {
 }
 
 func (s *ScheduleSvc) processInterval(workerID uint64) {
+	s.i.WorkerMainCounter.Increase()
 	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("Scheduler ProcessInterval started.")
 	for !s.i.ExitSignal {
 		currentTimeMs := time.Now().UnixMilli()
