@@ -19,8 +19,14 @@ import (
 var invokeArgs cmd.Args
 
 func main() {
-	cfg, cfgErr := config.InitKoanf()
-	logFile := config.InitZerolog(cfg.ConfigDir, cfg.ZeroLog.Level, cfg.ZeroLog.ConsoleLevel)
+	cfg, err := config.InitKoanf(true)
+	logger, logFile, err2 := config.InitZerolog(cfg.ConfigDir, true)
+	if err != nil {
+		logger.Err(err).Msg("error initializing config")
+	}
+	if err2 != nil {
+		logger.Err(err2).Msg("error initializing log file")
+	}
 	if logFile != nil {
 		defer logFile.Close()
 	}
@@ -33,15 +39,12 @@ func main() {
 	exec, _ := os.Executable()
 	exec, _ = filepath.Abs(exec)
 	exec = strings.ReplaceAll(exec, "\\", "/")
-	log.Info().Msg("VICTION CRAWLER")
+	log.Info().Msg("RPC CRAWLER")
 	log.Info().Msgf("Working directory: %s", pwd)
 	log.Info().Msgf("Config directory: %s", cfg.ConfigDir)
 	log.Info().Msgf("Config file: %s", cfg.ConfigFile)
 	log.Info().Msgf("Executable file: %s", exec)
 	log.Info().Msgf("Portable mode: %t", cfg.IsPortable)
-	if cfgErr != nil {
-		panic(cfgErr)
-	}
 
 	if invokeArgs.IndexBlockTx != nil {
 		indexCfg := invokeArgs.IndexBlockTx

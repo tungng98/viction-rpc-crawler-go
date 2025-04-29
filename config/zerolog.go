@@ -4,48 +4,56 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"path/filepath"
 	"time"
+	"viction-rpc-crawler-go/filesystem"
 
 	"github.com/rs/zerolog"
-	"github.com/rs/zerolog/log"
+	"github.com/tforce-io/tf-golib/opx"
 )
 
-func InitZerolog(configDir string, level, consoleLevel int8) *os.File {
+func InitZerolog(configDir string, useFS bool) (zerolog.Logger, *os.File, error) {
 	consoleWriter := &zerolog.FilteredLevelWriter{
-		Writer: zerolog.LevelWriterAdapter{Writer: zerolog.ConsoleWriter{Out: os.Stdout, NoColor: true, TimeFormat: time.DateTime}},
-		Level:  zerolog.Level(consoleLevel),
+		Writer: zerolog.LevelWriterAdapter{
+			Writer: zerolog.ConsoleWriter{Out: os.Stdout, NoColor: true, TimeFormat: time.DateTime},
+		},
+		Level: zerolog.TraceLevel,
 	}
 
-	logFile := ""
-	if configDir != "" {
-		date := time.Now().UTC().Format("20060102")
-		logFile = path.Join(configDir, "logs", fmt.Sprintf("viction-rcp-crawler-%s.log", date))
+	logFile, err := InitLogFile(useFS, configDir)
+	if logFile == nil {
+		consoleLogger := zerolog.New(consoleWriter).With().Timestamp().Logger()
+		return consoleLogger, nil, err
 	}
-	logDir := path.Join(configDir, "logs")
-	if !isExist(logDir) {
-		err := os.MkdirAll(logDir, 0755)
+
+	fileWriter := &zerolog.FilteredLevelWriter{
+		Writer: zerolog.LevelWriterAdapter{
+			Writer: logFile,
+		},
+		Level: zerolog.TraceLevel,
+	}
+	multiWriter := zerolog.MultiLevelWriter(consoleWriter, fileWriter)
+	logger := zerolog.New(multiWriter).With().Timestamp().Logger()
+	return logger, logFile, nil
+}
+
+func InitLogFile(useFS bool, workdingDir string) (*os.File, error) {
+	if !useFS {
+		return nil, nil
+	}
+	logDir := path.Join(opx.Ternary(workdingDir == "", ".", workdingDir), "logs")
+	if !filesystem.IsExist(logDir) {
+		err := filesystem.CreateDirectoryRecursive(logDir)
 		if err != nil {
-			log.Logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
-			log.Err(err).Msgf("Cannot create log file: %s", logFile)
-			return nil
+			return nil, err
 		}
 	}
-	if level < 0 {
-		log.Logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
-		return nil
-	}
-	fileStream, err := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
-	fileWriter := &zerolog.FilteredLevelWriter{
-		Writer: zerolog.LevelWriterAdapter{Writer: fileStream},
-		Level:  zerolog.Level(level),
-	}
+	execPath := ExecPath()
+	logFileName := fmt.Sprintf(execPath.Name.Name+"-%s.log", time.Now().UTC().Format("20060102"))
+	logFilePath := filepath.Join(logDir, logFileName)
+	logFile, err := os.OpenFile(logFilePath, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0664)
 	if err != nil {
-		log.Logger = zerolog.New(consoleWriter).With().Timestamp().Logger()
-		log.Err(err).Msgf("Cannot create log file: %s", logFile)
-		return nil
+		return nil, err
 	}
-
-	multiWriter := zerolog.MultiLevelWriter(consoleWriter, fileWriter)
-	log.Logger = zerolog.New(multiWriter).With().Timestamp().Logger()
-	return fileStream
+	return logFile, nil
 }
