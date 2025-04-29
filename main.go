@@ -6,9 +6,8 @@ import (
 	"strings"
 	"viction-rpc-crawler-go/cache"
 	"viction-rpc-crawler-go/cmd"
-	"viction-rpc-crawler-go/cmd/config"
+	"viction-rpc-crawler-go/config"
 	"viction-rpc-crawler-go/db"
-	"viction-rpc-crawler-go/diag"
 	"viction-rpc-crawler-go/rpc"
 	"viction-rpc-crawler-go/svc"
 
@@ -21,7 +20,7 @@ var invokeArgs cmd.Args
 
 func main() {
 	cfg, cfgErr := config.InitKoanf()
-	logFile := diag.InitZerolog(cfg.ConfigDir, cfg.ZeroLog.Level, cfg.ZeroLog.ConsoleLevel)
+	logFile := config.InitZerolog(cfg.ConfigDir, cfg.ZeroLog.Level, cfg.ZeroLog.ConsoleLevel)
 	if logFile != nil {
 		defer logFile.Close()
 	}

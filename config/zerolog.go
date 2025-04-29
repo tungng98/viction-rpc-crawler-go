@@ -1,4 +1,4 @@
-package diag
+package config
 
 import (
 	"fmt"
@@ -48,9 +48,4 @@ func InitZerolog(configDir string, level, consoleLevel int8) *os.File {
 	multiWriter := zerolog.MultiLevelWriter(consoleWriter, fileWriter)
 	log.Logger = zerolog.New(multiWriter).With().Timestamp().Logger()
 	return fileStream
-}
-
-func isExist(fPath string) bool {
-	_, err := os.Stat(fPath)
-	return !os.IsNotExist(err)
 }
