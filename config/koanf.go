@@ -17,8 +17,9 @@ import (
 )
 
 var cfg *RootConfig
+var k *koanf.Koanf
 
-func BuildConfig(useFS bool, f string) (*RootConfig, error) {
+func BuildConfig(useFS bool, f string) (*RootConfig, *koanf.Koanf, error) {
 	k := defaultConfig()
 	if useFS && filesystem.IsFileExist(f) {
 		k, _ = configFromYaml(k, f)
@@ -27,19 +28,19 @@ func BuildConfig(useFS bool, f string) (*RootConfig, error) {
 
 	var config RootConfig
 	err := k.Unmarshal("", &config)
-	return &config, err
+	return &config, k, err
 }
 
-func InitKoanf(useFS bool) (*RootConfig, error) {
+func InitKoanf(useFS bool) (*RootConfig, *koanf.Koanf, error) {
 	if cfg != nil {
-		return cfg, nil
+		return cfg, k, nil
 	}
-	configFile := "rpc-crawler.yml"
+	configFile := "viction-crawler.yml"
 	exec, _ := os.Executable()
 	execPath := strfmt.NewPathFromStr(exec)
 	cfgName := execPath.Name.Name + ".yml"
 	if strings.HasPrefix(execPath.Name.Name, "__debug_bin") {
-		cfgName = "rpc-crawler-debug.yml"
+		cfgName = "viction-crawler-debug.yml"
 	}
 	isPortable := IsPortable()
 	if isPortable {
@@ -52,15 +53,15 @@ func InitKoanf(useFS bool) (*RootConfig, error) {
 		configFile = path.Join(appData, "VicSvc", cfgName)
 	}
 	var err error
-	cfg, err = BuildConfig(useFS, configFile)
+	cfg, k, err = BuildConfig(useFS, configFile)
 	if err != nil {
-		return cfg, err
+		return cfg, k, err
 	}
 
 	cfg.ConfigDir = path.Dir(configFile)
 	cfg.ConfigFile = configFile
 	cfg.IsPortable = isPortable
-	return cfg, nil
+	return cfg, k, nil
 }
 
 func ExecPath() *strfmt.Path {

@@ -19,7 +19,7 @@ import (
 var invokeArgs cmd.Args
 
 func main() {
-	cfg, err := config.InitKoanf(true)
+	cfg, _, err := config.InitKoanf(true)
 	logger, logFile, err2 := config.InitZerolog(cfg.ConfigDir, true)
 	if err != nil {
 		logger.Err(err).Msg("error initializing config")
@@ -66,25 +66,6 @@ func main() {
 			IncludeTxs:      indexCfg.IncludeTxs,
 		}
 		svc.Exec()
-	}
-	if invokeArgs.ManageDatabase != nil {
-		subArgs := invokeArgs.ManageDatabase
-		if subArgs.Migrate.PostgreSQL != "" {
-			cfg.Database.PostgreSQL = subArgs.Migrate.PostgreSQL
-		}
-		if subArgs.Migrate != nil {
-			c, err := db.Connect(cfg.Database.PostgreSQL, "")
-			if err != nil {
-				log.Error().Err(err).Msg("Cannot connect to database.")
-				return
-			}
-			err = c.Migrate()
-			if err != nil {
-				log.Error().Err(err).Msg("Error while migrating database.")
-				return
-			}
-			log.Info().Msg("Migration successful!")
-		}
 	}
 	getModuleLogger := func(name string) *zerolog.Logger {
 		moduleLogger := log.Logger.With().Str("Module", name).Logger()
