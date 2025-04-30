@@ -6,7 +6,7 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"time"
-	"viction-rpc-crawler-go/x/ethutil"
+	"viction-rpc-crawler-go/ethutil"
 )
 
 const (

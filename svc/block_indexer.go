@@ -9,8 +9,8 @@ import (
 	"time"
 	"viction-rpc-crawler-go/cache"
 	"viction-rpc-crawler-go/db"
+	"viction-rpc-crawler-go/ethutil"
 	"viction-rpc-crawler-go/rpc"
-	"viction-rpc-crawler-go/x/ethutil"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gurukami/typ"

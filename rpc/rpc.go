@@ -3,7 +3,7 @@ package rpc
 import (
 	"context"
 	"math/big"
-	"viction-rpc-crawler-go/x/ethutil"
+	"viction-rpc-crawler-go/ethutil"
 )
 
 func (client *EthClient) GetBlockByNumber2(number *big.Int) (*Block, error) {
