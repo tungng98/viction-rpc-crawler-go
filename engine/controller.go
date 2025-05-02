@@ -3,6 +3,8 @@ package engine
 import (
 	"os"
 	"viction-rpc-crawler-go/config"
+	"viction-rpc-crawler-go/db"
+	"viction-rpc-crawler-go/rpc"
 
 	"github.com/knadh/koanf/v2"
 	"github.com/rs/zerolog"
@@ -47,6 +49,14 @@ func (c *Controller) Close() {
 		c.logFile.Close()
 		c.logFile = nil
 	}
+}
+
+func (c *Controller) DbClient() (*db.DbClient, error) {
+	return db.Connect(c.Root.Database.PostgreSQL, "")
+}
+
+func (c *Controller) RpcClient() (*rpc.EthClient, error) {
+	return rpc.Connect(c.Root.Blockchain.RpcUrl)
 }
 
 func (c *Controller) CommandLogger(module, command string) zerolog.Logger {
