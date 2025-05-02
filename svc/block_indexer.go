@@ -243,7 +243,7 @@ func (s *BlockIndexerSvc) prepareBatchData(dbc *db.DbClient, getBlockResults []*
 			result.Errors = append(result.Errors, getBlock)
 			continue
 		}
-		blockIDs = append(blockIDs, getBlock.BlockNumber.Uint64())
+		blockIDs = append(blockIDs, getBlock.Number.Uint64())
 	}
 
 	newBlockMap := make(map[uint64]*db.Block)
