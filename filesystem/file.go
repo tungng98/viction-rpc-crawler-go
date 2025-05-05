@@ -31,3 +31,14 @@ func NormalizePath(fPath string) string {
 	newPath := strings.ReplaceAll(fPath, "\\", "/") // enfore linux path style for clarity
 	return newPath
 }
+
+func WriteFile(filePath string, data []byte) error {
+	dir := filepath.Dir(filePath)
+	if !IsExist(dir) {
+		err := os.MkdirAll(dir, os.ModePerm)
+		if err != nil {
+			return err
+		}
+	}
+	return os.WriteFile(filePath, data, 0644)
+}

@@ -2,21 +2,22 @@ package rpc
 
 import (
 	"context"
+	"encoding/json"
 	"math/big"
 	"viction-rpc-crawler-go/ethutil"
 )
 
-func (client *EthClient) GetBlockByNumber2(number *big.Int) (*Block, error) {
-	fn, err := rpcCall[Block](client, "eth_getBlockByNumber", ethutil.BigIntToHex(number), true)
-	return fn, err
+func (client *EthClient) GetBlockByNumber2(number *big.Int) (*Block, string, error) {
+	fn, str, err := rpcCall[Block](client, "eth_getBlockByNumber", ethutil.BigIntToHex(number), true)
+	return fn, str, err
 }
 
-func (client *EthClient) GetBlockFinalityByNumber(number *big.Int) (*uint, error) {
-	fn, err := rpcCall[uint](client, "eth_getBlockFinalityByNumber", ethutil.BigIntToHex(number))
-	return fn, err
+func (client *EthClient) GetBlockFinalityByNumber(number *big.Int) (*uint, string, error) {
+	fn, str, err := rpcCall[uint](client, "eth_getBlockFinalityByNumber", ethutil.BigIntToHex(number))
+	return fn, str, err
 }
 
-func (client *EthClient) TraceBlockByNumber(number *big.Int) ([]*TraceTransactionResult, error) {
+func (client *EthClient) TraceBlockByNumber(number *big.Int) ([]*TraceTransactionResult, string, error) {
 	tracerConfig := struct {
 		Tracer  string `json:"tracer"`
 		Timeout string `json:"timeout"`
@@ -24,18 +25,18 @@ func (client *EthClient) TraceBlockByNumber(number *big.Int) ([]*TraceTransactio
 		Tracer:  "callTracer",
 		Timeout: "300s",
 	}
-	tempResult, err := rpcCall[[]TxTraceResult](client, "debug_traceBlockByNumber", ethutil.BigIntToHex(number), tracerConfig)
+	tempResult, str, err := rpcCall[[]TxTraceResult](client, "debug_traceBlockByNumber", ethutil.BigIntToHex(number), tracerConfig)
 	if err != nil {
-		return []*TraceTransactionResult{}, err
+		return []*TraceTransactionResult{}, str, err
 	}
 	result := make([]*TraceTransactionResult, len(*tempResult))
 	for i, r := range *tempResult {
 		result[i] = r.Result
 	}
-	return result, err
+	return result, str, err
 }
 
-func (client *EthClient) TraceTransaction(txHash string) (*TraceTransactionResult, error) {
+func (client *EthClient) TraceTransaction(txHash string) (*TraceTransactionResult, string, error) {
 	tracerConfig := struct {
 		Tracer  string `json:"tracer"`
 		Timeout string `json:"timeout"`
@@ -43,12 +44,16 @@ func (client *EthClient) TraceTransaction(txHash string) (*TraceTransactionResul
 		Tracer:  "callTracer",
 		Timeout: "300s",
 	}
-	result, err := rpcCall[TraceTransactionResult](client, "debug_traceTransaction", txHash, tracerConfig)
-	return result, err
+	result, str, err := rpcCall[TraceTransactionResult](client, "debug_traceTransaction", txHash, tracerConfig)
+	return result, str, err
 }
 
-func rpcCall[T interface{}](client *EthClient, method string, args ...interface{}) (*T, error) {
+func rpcCall[T interface{}](client *EthClient, method string, args ...interface{}) (*T, string, error) {
+	var raw json.RawMessage
+	err := client.r.CallContext(context.Background(), &raw, method, args...)
 	var result *T
-	err := client.r.CallContext(context.Background(), &result, method, args...)
-	return result, err
+	if err == nil && raw != nil {
+		err = json.Unmarshal([]byte(raw), &result)
+	}
+	return result, string(raw), err
 }

@@ -21,16 +21,45 @@ func NewController(cfg *config.RootConfig, db *db.DbClient, rpc *rpc.EthClient, 
 	router := multiplex.NewServiceController(logger)
 
 	getBlocks := NewGetBlocks(logger)
-	getBlocks.SetWorker(1)
 	getBlocks.SetRouter(router)
+	getBlocks.SetWorker(1)
 	router.Register(getBlocks)
+
+	indexBlock := NewIndexBlock(logger)
+	indexBlock.SetRouter(router)
+	indexBlock.SetWorker(4)
+	router.Register(indexBlock)
+
+	readFileSystem := NewReadFileSystem(logger)
+	readFileSystem.SetRouter(router)
+	readFileSystem.SetWorker(1)
+	router.Register(readFileSystem)
+
+	writeFileSystem := NewWriteFileSystem(logger)
+	writeFileSystem.SetRouter(router)
+	writeFileSystem.SetWorker(1)
+	router.Register(writeFileSystem)
+
+	if db == nil {
+		logger.Warn("DB services are not available.")
+	} else {
+		readDatabase := NewReadDatabase(logger, db)
+		readDatabase.SetRouter(router)
+		readDatabase.SetWorker(1)
+		router.Register(readDatabase)
+
+		writeDatabase := NewWriteDatabase(logger, db)
+		writeDatabase.SetRouter(router)
+		writeDatabase.SetWorker(1)
+		router.Register(writeDatabase)
+	}
 
 	if rpc == nil {
 		logger.Warn("RPC services are not available.")
 	} else {
 		getBlock := NewGetBlock(logger, rpc)
-		getBlock.SetWorker(cfg.Service.Worker.GetBlock)
 		getBlock.SetRouter(router)
+		getBlock.SetWorker(cfg.Service.Worker.GetBlock)
 		router.Register(getBlock)
 	}
 

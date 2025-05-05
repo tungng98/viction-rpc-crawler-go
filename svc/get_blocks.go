@@ -24,6 +24,7 @@ func (s *GetBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessa
 	switch msg.Command {
 	case "get_blocks":
 	case "get_blocks_range":
+		s.i.Logger.Infof("%s#%d: %s started.", s.i.ServiceID, workerID, msg.Command)
 		startTime := time.Now()
 		requests := []multiplex.ExecParams{}
 		signal := new(sync.WaitGroup)

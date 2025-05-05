@@ -30,19 +30,20 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 	switch msg.Command {
 	case "get_block":
 		blockNumber := msg.GetParam("block_number", new(big.Int)).(*big.Int)
-		block, err := s.rpc.GetBlockByNumber2(blockNumber)
+		block, str, err := s.rpc.GetBlockByNumber2(blockNumber)
 		retryCount := 0
 		for err != nil && retryCount < s.o.MaxRetries {
-			block, err = s.rpc.GetBlockByNumber2(blockNumber)
+			block, str, err = s.rpc.GetBlockByNumber2(blockNumber)
 			retryCount++
 		}
 		result := &GetBlockResult{
-			Number: blockNumber,
-			Data:   block,
-			Error:  err,
+			Number:  blockNumber,
+			Data:    block,
+			RawData: str,
+			Error:   err,
 		}
-		msg.Return(result)
 		s.i.Logger.Infof("%s#%d: Block #%d retrieved.", s.i.ServiceID, workerID, blockNumber.Uint64())
+		msg.Return(result)
 	case "get_block_number":
 		head, err := s.rpc.GetBlockNumber()
 		retryCount := 0
@@ -64,9 +65,10 @@ type GetBlockOptions struct {
 }
 
 type GetBlockResult struct {
-	Number *big.Int
-	Data   *rpc.Block
-	Error  error
+	Number  *big.Int
+	Data    *rpc.Block
+	RawData string
+	Error   error
 }
 
 type GetBlockNumberResult struct {

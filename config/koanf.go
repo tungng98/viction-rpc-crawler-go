@@ -12,7 +12,6 @@ import (
 	"github.com/knadh/koanf/providers/file"
 	"github.com/knadh/koanf/providers/structs"
 	"github.com/knadh/koanf/v2"
-	"github.com/rs/zerolog"
 	"github.com/tforce-io/tf-golib/strfmt"
 )
 
@@ -81,25 +80,7 @@ func defaultConfig() *koanf.Koanf {
 	var k = koanf.New(".")
 
 	k.Load(
-		structs.Provider(RootConfig{
-			Blockchain: &BlockchainConfig{
-				RpcUrl: "http://localhost:8545",
-			},
-			Database: &DatabaseConfig{},
-			ZeroLog: &ZeroLogConfig{
-				Level:        int8(zerolog.DebugLevel),
-				ConsoleLevel: int8(zerolog.DebugLevel),
-			},
-			Service: &ServiceConfig{
-				Schedule: &ServiceScheduleConfig{
-					IndexBlockInterval: 30,
-					IndexBlockBatch:    900,
-				},
-				Worker: &JobWorkerConfig{
-					GetBlock: 8,
-				},
-			},
-		}, "koanf"),
+		structs.Provider(DefaultRootConfig(), "koanf"),
 		nil,
 	)
 

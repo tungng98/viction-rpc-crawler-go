@@ -15,6 +15,7 @@ func Execute() {
 	}
 	rootCmd.AddCommand(BenchmarkCmd())
 	rootCmd.AddCommand(DatabaseCmd())
+	rootCmd.AddCommand(DownloadCmd())
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
