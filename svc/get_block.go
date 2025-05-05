@@ -29,7 +29,7 @@ func NewGetBlock(logger diag.Logger, rpc *rpc.EthClient) *GetBlock {
 func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessage) *multiplex.HookState {
 	switch msg.Command {
 	case "get_block":
-		blockNumber := msg.Params["block_number"].(*big.Int)
+		blockNumber := msg.GetParam("block_number", new(big.Int)).(*big.Int)
 		block, err := s.rpc.GetBlockByNumber2(blockNumber)
 		retryCount := 0
 		for err != nil && retryCount < s.o.MaxRetries {

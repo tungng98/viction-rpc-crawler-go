@@ -14,19 +14,16 @@ type Controller struct {
 	db     *db.DbClient
 	rpc    *rpc.EthClient
 	svc    *multiplex.ServiceController
-	svcs   map[string]multiplex.Service
 	logger diag.Logger
 }
 
 func NewController(cfg *config.RootConfig, db *db.DbClient, rpc *rpc.EthClient, logger diag.Logger) *Controller {
 	router := multiplex.NewServiceController(logger)
 
-	svcs := map[string]multiplex.Service{}
 	getBlocks := NewGetBlocks(logger)
 	getBlocks.SetWorker(1)
 	getBlocks.SetRouter(router)
 	router.Register(getBlocks)
-	svcs[getBlocks.ServiceID()] = getBlocks
 
 	if rpc == nil {
 		logger.Warn("RPC services are not available.")
@@ -35,7 +32,6 @@ func NewController(cfg *config.RootConfig, db *db.DbClient, rpc *rpc.EthClient, 
 		getBlock.SetWorker(cfg.Service.Worker.GetBlock)
 		getBlock.SetRouter(router)
 		router.Register(getBlock)
-		svcs[getBlock.ServiceID()] = getBlock
 	}
 
 	return &Controller{
@@ -43,7 +39,6 @@ func NewController(cfg *config.RootConfig, db *db.DbClient, rpc *rpc.EthClient, 
 		db:     db,
 		rpc:    rpc,
 		svc:    router,
-		svcs:   svcs,
 		logger: logger,
 	}
 }
@@ -53,12 +48,12 @@ func (c *Controller) Run() {
 }
 
 func (c *Controller) Dispatch(serviceID string, command string, params multiplex.ExecParams) {
-	c.svcs[serviceID].Exec(command, params)
+	c.svc.Dispatch(serviceID, command, params)
 }
 
 func (c *Controller) DispatchOnce(serviceID string, command string, params multiplex.ExecParams) {
 	params.ExpectReturn()
-	c.svcs[serviceID].Exec(command, params)
+	c.svc.Dispatch(serviceID, command, params)
 	params.Wait()
 	c.svc.Exec("exit", multiplex.ExecParams{})
 }

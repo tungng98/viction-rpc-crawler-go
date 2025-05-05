@@ -91,9 +91,12 @@ func defaultConfig() *koanf.Koanf {
 				ConsoleLevel: int8(zerolog.DebugLevel),
 			},
 			Service: &ServiceConfig{
-				Schedule: &ServiceScheduleConfig{},
+				Schedule: &ServiceScheduleConfig{
+					IndexBlockInterval: 30,
+					IndexBlockBatch:    900,
+				},
 				Worker: &JobWorkerConfig{
-					BlockFetcher: 16,
+					GetBlock: 8,
 				},
 			},
 		}, "koanf"),

@@ -1,5 +1,9 @@
 package config
 
+const (
+	BlockchainRpcUrlKey = "blockchain.rpc"
+)
+
 type RootConfig struct {
 	ConfigDir  string
 	ConfigFile string
@@ -34,5 +38,5 @@ type ServiceScheduleConfig struct {
 }
 
 type JobWorkerConfig struct {
-	BlockFetcher uint16 `koanf:"blockFetcher"`
+	GetBlock uint64 `koanf:"getBlock"`
 }

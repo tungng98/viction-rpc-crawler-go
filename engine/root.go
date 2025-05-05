@@ -13,6 +13,7 @@ func Execute() {
 		Short:   "Viction Blockchain data crawler.",
 		Version: version(),
 	}
+	rootCmd.AddCommand(BenchmarkCmd())
 	rootCmd.AddCommand(DatabaseCmd())
 
 	if err := rootCmd.Execute(); err != nil {

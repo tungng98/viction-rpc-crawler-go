@@ -65,28 +65,13 @@ func DatabaseCmd() *cobra.Command {
 }
 
 type DatabaseFlags struct {
-	Algorithms []string
-	Inputs     []string
-	Output     string
-	OutputName string
-
 	Configs map[string]interface{}
 }
 
 func ParseDatabaseFlags(cmd *cobra.Command) *DatabaseFlags {
-	algorithms, _ := cmd.Flags().GetStringSlice("algo")
-	inputs, _ := cmd.Flags().GetStringSlice("inputs")
-	output, _ := cmd.Flags().GetString("output")
-	outputName, _ := cmd.Flags().GetString("title")
-
 	configs := make(map[string]interface{})
 
 	return &DatabaseFlags{
-		Algorithms: algorithms,
-		Inputs:     inputs,
-		Output:     output,
-		OutputName: outputName,
-
 		Configs: configs,
 	}
 }
