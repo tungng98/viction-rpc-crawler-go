@@ -39,7 +39,7 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 			Data:   block,
 			Error:  err,
 		}
-		ReturnSync(msg, result)
+		msg.Return(result)
 	}
 	return &multiplex.HookState{Handled: true}
 }

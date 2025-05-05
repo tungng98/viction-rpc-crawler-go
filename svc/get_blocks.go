@@ -3,7 +3,6 @@ package svc
 import (
 	"math/big"
 	"sync"
-	"viction-rpc-crawler-go/rpc"
 
 	"github.com/tforce-io/tf-golib/diag"
 	"github.com/tforce-io/tf-golib/multiplex"
@@ -11,9 +10,8 @@ import (
 
 type GetBlocks struct {
 	multiplex.ServiceCore
-	i   *multiplex.ServiceCoreInternal
-	o   *GetBlocksOptions
-	rpc *rpc.EthClient
+	i *multiplex.ServiceCoreInternal
+	o *GetBlocksOptions
 }
 
 func NewGetBlocks(logger diag.Logger) *GetBlocks {
@@ -38,7 +36,7 @@ func (s *GetBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessa
 					"block_number": blockNumber,
 					"signal":       signal,
 				}
-				ExpectReturnsWithCustomSignal(request, signal)
+				request.ExpectReturnCustomSignal(signal)
 				requests = append(requests, request)
 			}
 		}
@@ -50,7 +48,7 @@ func (s *GetBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessa
 					"block_number": blockNumber,
 					"signal":       signal,
 				}
-				ExpectReturnsWithCustomSignal(request, signal)
+				request.ExpectReturnCustomSignal(signal)
 				requests = append(requests, request)
 			}
 		}
@@ -66,7 +64,7 @@ func (s *GetBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessa
 			result := request["result"].(*GetBlockResult)
 			results.Data[i] = result
 		}
-		ReturnSync(msg, results)
+		msg.Return(results)
 	}
 	return &multiplex.HookState{Handled: true}
 }

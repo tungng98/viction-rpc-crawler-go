@@ -5,7 +5,6 @@ go 1.22.0
 toolchain go1.22.7
 
 require (
-	github.com/alexflint/go-arg v1.5.1
 	github.com/ethereum/go-ethereum v1.10.26
 	github.com/gurukami/typ v1.2.0
 	github.com/knadh/koanf/parsers/yaml v0.1.0
@@ -16,17 +15,15 @@ require (
 	github.com/rs/zerolog v1.33.0
 	github.com/shopspring/decimal v1.4.0
 	github.com/spf13/cobra v1.9.1
-	github.com/tforce-io/tf-golib v0.5.0
+	github.com/tforce-io/tf-golib v0.5.2
 	go.mongodb.org/mongo-driver v1.17.1
 	golang.org/x/crypto v0.26.0
-	golang.org/x/exp v0.0.0-20241217172543-b2144cdd0a67
 	gorm.io/driver/postgres v1.5.11
 	gorm.io/gorm v1.25.12
 )
 
 require (
 	github.com/StackExchange/wmi v0.0.0-20180116203802-5d049714c4a6 // indirect
-	github.com/alexflint/go-scalar v1.2.0 // indirect
 	github.com/btcsuite/btcd/btcec/v2 v2.2.0 // indirect
 	github.com/deckarep/golang-set v1.8.0 // indirect
 	github.com/decred/dcrd/dcrec/secp256k1/v4 v4.0.1 // indirect
