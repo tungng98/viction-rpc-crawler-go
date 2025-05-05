@@ -1,142 +1,88 @@
 package svc
 
 import (
-	"github.com/rs/zerolog"
+	"viction-rpc-crawler-go/config"
+	"viction-rpc-crawler-go/db"
+	"viction-rpc-crawler-go/rpc"
+
+	"github.com/tforce-io/tf-golib/diag"
+	"github.com/tforce-io/tf-golib/multiplex"
 )
 
-type ServiceControllerCommand struct {
-	ServiceID string
-	Command   string
-	Params    ExecParams
-	ExecCount uint16
+type Controller struct {
+	cfg    *config.RootConfig
+	db     *db.DbClient
+	rpc    *rpc.EthClient
+	svc    *multiplex.ServiceController
+	logger diag.Logger
 }
 
-type ServiceController struct {
-	i *ServiceControllerInternal
-}
+func NewController(cfg *config.RootConfig, db *db.DbClient, rpc *rpc.EthClient, logger diag.Logger) *Controller {
+	router := multiplex.NewServiceController(logger)
 
-type ServiceControllerInternal struct {
-	Services map[string]BackgroundService
+	getBlocks := NewGetBlocks(logger)
+	getBlocks.SetRouter(router)
+	getBlocks.SetWorker(1)
+	router.Register(getBlocks)
 
-	WorkerMainCounter *WorkerCounter
-	WorkerID          uint64
+	indexBlock := NewIndexBlock(logger)
+	indexBlock.SetRouter(router)
+	indexBlock.SetWorker(4)
+	router.Register(indexBlock)
 
-	MainChan   chan *ServiceControllerCommand
-	ExitChan   chan bool
-	Background bool
+	readFileSystem := NewReadFileSystem(logger)
+	readFileSystem.SetRouter(router)
+	readFileSystem.SetWorker(1)
+	router.Register(readFileSystem)
 
-	Logger *zerolog.Logger
-}
+	writeFileSystem := NewWriteFileSystem(logger)
+	writeFileSystem.SetRouter(router)
+	writeFileSystem.SetWorker(1)
+	router.Register(writeFileSystem)
 
-func NewServiceController(logger *zerolog.Logger) ServiceController {
-	svc := ServiceController{
-		i: &ServiceControllerInternal{
-			Services: map[string]BackgroundService{},
-
-			WorkerMainCounter: &WorkerCounter{},
-
-			MainChan: make(chan *ServiceControllerCommand, MAIN_CHAN_CAPACITY),
-			ExitChan: make(chan bool),
-
-			Logger: logger,
-		},
-	}
-	return svc
-}
-
-func (s ServiceController) Run(background bool) {
-	s.i.WorkerMainCounter.Lock()
-	if s.i.WorkerMainCounter.ValueNoLock() == 0 {
-		if _, ok := s.i.Services[s.ServiceID()]; !ok {
-			s.RegisterService(s)
-		}
-		s.i.WorkerID++
-		go s.process(s.i.WorkerID)
-		s.i.Logger.Info().Msg("Controller started.")
-	}
-
-	if background {
-		s.i.Background = true
-		s.i.WorkerMainCounter.Unlock()
-		<-s.i.ExitChan
-		s.i.Background = false
-		s.i.Logger.Info().Msg("Controller exited.")
+	if db == nil {
+		logger.Warn("DB services are not available.")
 	} else {
-		s.i.WorkerMainCounter.Unlock()
+		readDatabase := NewReadDatabase(logger, db)
+		readDatabase.SetRouter(router)
+		readDatabase.SetWorker(1)
+		router.Register(readDatabase)
+
+		writeDatabase := NewWriteDatabase(logger, db)
+		writeDatabase.SetRouter(router)
+		writeDatabase.SetWorker(1)
+		router.Register(writeDatabase)
+	}
+
+	if rpc == nil {
+		logger.Warn("RPC services are not available.")
+	} else {
+		getBlock := NewGetBlock(logger, rpc)
+		getBlock.SetRouter(router)
+		getBlock.SetWorker(cfg.Service.Worker.GetBlock)
+		router.Register(getBlock)
+	}
+
+	return &Controller{
+		cfg:    cfg,
+		db:     db,
+		rpc:    rpc,
+		svc:    router,
+		logger: logger,
 	}
 }
 
-func (s *ServiceController) RegisterService(instance BackgroundService) {
-	s.i.Services[instance.ServiceID()] = instance
+func (c *Controller) Run() {
+	c.svc.Run(true)
 }
 
-func (s *ServiceController) UnregisterService(serviceID string) {
-	if _, ok := s.i.Services[serviceID]; !ok {
-		return
-	}
-	if s.i.Services[serviceID].WorkerCount() == 0 {
-		delete(s.i.Services, serviceID)
-	}
+func (c *Controller) Dispatch(serviceID string, command string, params multiplex.ExecParams) {
+	c.svc.Dispatch(serviceID, command, params)
 }
 
-func (s ServiceController) ServiceID() string {
-	return "_"
-}
-
-func (s ServiceController) Controller() ServiceController {
-	return s
-}
-
-func (s ServiceController) SetWorker(workerCount uint16) {
-}
-
-func (s ServiceController) WorkerCount() uint16 {
-	return s.i.WorkerMainCounter.ValueNoLock()
-}
-
-func (s ServiceController) Exec(command string, params ExecParams) {
-	msg := &ServiceControllerCommand{
-		ServiceID: s.ServiceID(),
-		Command:   command,
-		Params:    params,
-		ExecCount: 0,
-	}
-	s.i.MainChan <- msg
-}
-
-func (s ServiceController) ExecService(serviceID, command string, params ExecParams) {
-	msg := &ServiceControllerCommand{
-		ServiceID: serviceID,
-		Command:   command,
-		Params:    params,
-		ExecCount: 0,
-	}
-	s.i.MainChan <- msg
-}
-
-func (s *ServiceController) process(workerID uint64) {
-	s.i.WorkerMainCounter.Increase()
-	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("Controller Process started.")
-	status := INIT_STATE
-	for status != EXIT_STATE {
-		msg := <-s.i.MainChan
-		if msg.ServiceID == s.ServiceID() {
-			switch msg.Command {
-			case "set_worker":
-				serviceId := msg.Params["service_id"].(string)
-				workerCount := msg.Params["worker_count"].(uint16)
-				s.i.Services[serviceId].SetWorker(workerCount)
-			case "exit":
-				status = EXIT_STATE
-			}
-		} else {
-			s.i.Services[msg.ServiceID].Exec(msg.Command, msg.Params)
-			status = SUCCESS_STATE
-		}
-	}
-	if s.i.Background {
-		s.i.ExitChan <- true
-	}
-	s.i.WorkerMainCounter.Decrease()
-	s.i.Logger.Info().Uint64("WorkerID", workerID).Msg("Controller Process exited.")
+func (c *Controller) DispatchOnce(serviceID string, command string, params multiplex.ExecParams) {
+	params.ExpectReturn()
+	c.svc.Dispatch(serviceID, command, params)
+	params.Wait()
+	c.svc.Exec("exit", multiplex.ExecParams{})
 }

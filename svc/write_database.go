@@ -2,21 +2,18 @@ package svc
 
 import (
 	"encoding/hex"
-	"math/big"
 	"slices"
-	"sync"
-	"time"
-
 	"viction-rpc-crawler-go/db"
+	"viction-rpc-crawler-go/ethutil"
 	"viction-rpc-crawler-go/rpc"
-	"viction-rpc-crawler-go/x/ethutil"
 
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/gurukami/typ"
-	"github.com/rs/zerolog"
+	"github.com/tforce-io/tf-golib/diag"
+	"github.com/tforce-io/tf-golib/multiplex"
 )
 
-var SYSTEM_ADDRESSES = []string{
+var SystemAddresses = []string{
 	"0000000000000000000000000000000000000089", // Sign block
 	"0000000000000000000000000000000000000090", // Randomize
 	"0000000000000000000000000000000000000091", // TomoX
@@ -25,135 +22,56 @@ var SYSTEM_ADDRESSES = []string{
 	"0000000000000000000000000000000000000094", // TomoXFinalLending
 }
 
-type IndexBlockTxService struct {
-	DbConnStr       string
-	RpcUrl          string
-	StartBlock      int64
-	EndBlock        int64
-	UseHighestBlock bool
-	BatchSize       int
-	WorkerCount     int
-	IncludeTxs      bool
-	Logger          *zerolog.Logger
-
-	workers *GetBlockDataQueue
+type WriteDatabase struct {
+	multiplex.ServiceCore
+	i  *multiplex.ServiceCoreInternal
+	db *db.DbClient
 }
 
-func (s *IndexBlockTxService) Exec() {
-	s.init()
-	db, err := db.Connect(s.DbConnStr, "")
-	if err != nil {
-		panic(err)
+func NewWriteDatabase(logger diag.Logger, dbClient *db.DbClient) *WriteDatabase {
+	svc := &WriteDatabase{
+		db: dbClient,
 	}
-	defer db.Disconnect()
-	rpc, err := rpc.Connect(s.RpcUrl)
-	if err != nil {
-		panic(err)
-	}
-	if s.workers == nil {
-		s.workers = &GetBlockDataQueue{
-			chanBlockNumbers: make(chan *GetBlockDataItem, s.WorkerCount),
-			client:           rpc,
-			logger:           s.Logger,
-		}
-		for i := 1; i <= s.WorkerCount; i++ {
-			go s.workers.Start()
-		}
-	}
-	startBlockNumber := big.NewInt(s.StartBlock)
-	if s.UseHighestBlock {
-		highestBlock, err := db.GetHighestIndexBlock()
-		if err != nil {
-			panic(err)
-		}
-		if highestBlock != nil {
-			startBlockNumber = new(big.Int).SetUint64(highestBlock.BlockNumber)
-		}
-	}
-	endBlock := big.NewInt(s.EndBlock)
-	for startBlockNumber.Cmp(endBlock) <= 0 {
-		endBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(s.BatchSize)-1))
-		if endBlockNumber.Cmp(endBlock) > 0 {
-			endBlockNumber.Set(endBlock)
-		}
-		blocks, err := s.getBlockData(startBlockNumber, endBlockNumber)
-		if err != nil {
-			panic(err)
-		}
-		startTime := time.Now()
-		batchData, err := s.prepareBatchData(db, blocks)
+	svc.i = svc.InitServiceCore("WriteDatabase", logger, svc.coreProcessHook)
+	return svc
+}
+
+func (s *WriteDatabase) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessage) *multiplex.HookState {
+	switch msg.Command {
+	case "write_blocks":
+		blocks := msg.GetParam("blocks", []*rpc.Block{}).([]*rpc.Block)
+		batchData, err := s.prepareBatchData(blocks)
 		if err != nil {
 			panic(err)
 		}
 		if len(batchData.NewBlocks)+len(batchData.ChangedBlocks) > 0 {
-			err = db.SaveBlocks(batchData.NewBlocks, batchData.ChangedBlocks)
+			err = s.db.SaveBlocks(batchData.NewBlocks, batchData.ChangedBlocks)
 			if err != nil {
 				panic(err)
 			}
 		}
 		if len(batchData.NewTxs)+len(batchData.ChangedTxs) > 0 {
-			if s.IncludeTxs {
-				err = db.SaveTransactions(batchData.NewTxs, batchData.ChangedTxs)
-				if err != nil {
-					panic(err)
-				}
-			}
-		}
-		if len(batchData.Issues) > 0 {
-			err = db.SaveIssues(batchData.Issues)
+			err = s.db.SaveTransactions(batchData.NewTxs, batchData.ChangedTxs)
 			if err != nil {
 				panic(err)
 			}
 		}
-		nextStartBlockNumber := new(big.Int).Add(startBlockNumber, big.NewInt(int64(len(blocks))))
-		err = db.SaveHighestIndexBlock(nextStartBlockNumber)
+		if len(batchData.Issues) > 0 {
+			err = s.db.SaveIssues(batchData.Issues)
+			if err != nil {
+				panic(err)
+			}
+		}
 		if err != nil {
 			panic(err)
 		}
-		s.Logger.Info().
-			Int("NewBlocksCount", len(batchData.NewBlocks)).
-			Int("ChangedBlocksCount", len(batchData.ChangedBlocks)).
-			Int("NewTxsCount", len(batchData.NewTxs)).
-			Int("ChangedTxsCount", len(batchData.ChangedTxs)).
-			Int("IssuesCount", len(batchData.Issues)).
-			Msgf("Persisted Batch #%d-%d in %v.", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
-		startBlockNumber.Set(nextStartBlockNumber)
+		defer msg.Return(nil)
 	}
+	return &multiplex.HookState{Handled: true}
 }
 
-func (s *IndexBlockTxService) init() {
-	if s.WorkerCount == 0 {
-		s.WorkerCount = 1
-	}
-	if s.BatchSize == 0 {
-		s.BatchSize = 1
-	}
-}
-
-func (s *IndexBlockTxService) getBlockData(startBlockNumber *big.Int, endBlockNumber *big.Int) ([]*rpc.Block, error) {
-	batchSize := int(new(big.Int).Sub(endBlockNumber, startBlockNumber).Int64() + 1)
-	s.workers.BlockData = make([]*rpc.Block, batchSize)
-	s.workers.ChanCompleteSignal = new(sync.WaitGroup)
-	s.workers.ChanCompleteSignal.Add(batchSize)
-	startTime := time.Now()
-	for i := 0; i < batchSize; i++ {
-		s.workers.Equneue(new(big.Int).Add(startBlockNumber, big.NewInt(int64(i))), i)
-	}
-	s.workers.ChanCompleteSignal.Wait()
-	s.Logger.Info().Msgf("Fetched Batch #%d-%d in %v.", startBlockNumber.Int64(), endBlockNumber.Int64(), time.Since(startTime))
-	return s.workers.BlockData, s.workers.Error
-}
-
-type IndexBlockBatchDataResult struct {
-	NewBlocks     []*db.Block
-	ChangedBlocks []*db.Block
-	NewTxs        []*db.Transaction
-	ChangedTxs    []*db.Transaction
-	Issues        []*db.Issue
-}
-
-func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.Block) (*IndexBlockBatchDataResult, error) {
-	result := &IndexBlockBatchDataResult{
+func (s *WriteDatabase) prepareBatchData(blocks []*rpc.Block) (*BlockBatchData, error) {
+	result := &BlockBatchData{
 		NewBlocks:     []*db.Block{},
 		ChangedBlocks: []*db.Block{},
 		NewTxs:        []*db.Transaction{},
@@ -173,7 +91,7 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 
 	newBlockMap := make(map[uint64]*db.Block)
 	changedBlockMap := make(map[uint64]*db.Block)
-	changedBlocks, err := dbc.GetBlocksByHashes(blockHashes)
+	changedBlocks, err := s.db.GetBlocksByHashes(blockHashes)
 	if err != nil {
 		return nil, err
 	}
@@ -182,14 +100,12 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 	}
 	newTxMap := make(map[string]*db.Transaction)
 	changedTxMap := make(map[string]*db.Transaction)
-	if s.IncludeTxs {
-		changedTxs, err := dbc.GetTransactions(txHashes)
-		if err != nil {
-			return nil, err
-		}
-		for _, tx := range changedTxs {
-			changedTxMap[tx.Hash] = tx
-		}
+	changedTxs, err := s.db.GetTransactions(txHashes)
+	if err != nil {
+		return nil, err
+	}
+	for _, tx := range changedTxs {
+		changedTxMap[tx.Hash] = tx
 	}
 	for _, block := range blocks {
 		blockNumber := block.Number.BigInt()
@@ -202,7 +118,7 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 			if tx.To != nil {
 				toAddress = tx.To.Hex()
 			}
-			if slices.Contains(SYSTEM_ADDRESSES, toAddress) {
+			if slices.Contains(SystemAddresses, toAddress) {
 				systemTxCount += 1
 			}
 			if ctx, ok := changedTxMap[txHash]; ok {
@@ -264,7 +180,7 @@ func (s *IndexBlockTxService) prepareBatchData(dbc *db.DbClient, blocks []*rpc.B
 	return result, err
 }
 
-func (s *IndexBlockTxService) copyBlockProperties(ethBlock *rpc.Block, dbBlock *db.Block) {
+func (s *WriteDatabase) copyBlockProperties(ethBlock *rpc.Block, dbBlock *db.Block) {
 	dbBlock.Hash = ethBlock.Hash.Hex()
 	dbBlock.ParentHash = ethBlock.ParentHash.Hex()
 	dbBlock.Timestamp = int64(ethBlock.Timestamp.Int())
@@ -308,7 +224,7 @@ func (s *IndexBlockTxService) copyBlockProperties(ethBlock *rpc.Block, dbBlock *
 	}
 }
 
-func (s *IndexBlockTxService) copyTransactionProperties(ethTransaction *rpc.Transaction, ethBlock *rpc.Block, dbTransaction *db.Transaction) {
+func (s *WriteDatabase) copyTransactionProperties(ethTransaction *rpc.Transaction, ethBlock *rpc.Block, dbTransaction *db.Transaction) {
 	dbTransaction.BlockID = ethBlock.Number.Int()
 	dbTransaction.BlockHash = ethBlock.Hash.Hex()
 	dbTransaction.TransactionIndex = 0
@@ -322,37 +238,10 @@ func (s *IndexBlockTxService) copyTransactionProperties(ethTransaction *rpc.Tran
 	dbTransaction.GasPrice = ethTransaction.GasPrice.Decimal()
 }
 
-type GetBlockDataQueue struct {
-	chanBlockNumbers   chan *GetBlockDataItem
-	client             *rpc.EthClient
-	logger             *zerolog.Logger
-	BlockData          []*rpc.Block
-	ChanCompleteSignal *sync.WaitGroup
-	Error              error
-}
-
-type GetBlockDataItem struct {
-	blockNumber *big.Int
-	index       int
-}
-
-func (q *GetBlockDataQueue) Start() {
-	for {
-		select {
-		case data := <-q.chanBlockNumbers:
-			startTime := time.Now()
-			var err error
-			q.BlockData[data.index], err = q.client.GetBlockByNumber2(data.blockNumber)
-			if err != nil {
-				q.BlockData[data.index] = nil
-				q.Error = err
-			}
-			q.logger.Debug().Msgf("Fetched block #%d in %v", data.blockNumber.Int64(), time.Since(startTime))
-			q.ChanCompleteSignal.Done()
-		}
-	}
-}
-
-func (q *GetBlockDataQueue) Equneue(blockNumber *big.Int, index int) {
-	q.chanBlockNumbers <- &GetBlockDataItem{blockNumber, index}
+type BlockBatchData struct {
+	NewBlocks     []*db.Block
+	ChangedBlocks []*db.Block
+	NewTxs        []*db.Transaction
+	ChangedTxs    []*db.Transaction
+	Issues        []*db.Issue
 }

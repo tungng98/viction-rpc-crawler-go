@@ -19,7 +19,7 @@ const (
 
 type BackgroundService interface {
 	ServiceID() string
-	Controller() ServiceController
+	// Controller() ServiceController
 	SetWorker(workerCount uint16)
 	WorkerCount() uint16
 	Exec(command string, params ExecParams)

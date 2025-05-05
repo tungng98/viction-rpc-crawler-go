@@ -8,7 +8,7 @@ import (
 	"math/big"
 	"regexp"
 	"strings"
-	"viction-rpc-crawler-go/x/ethutil"
+	"viction-rpc-crawler-go/ethutil"
 
 	"golang.org/x/crypto/sha3"
 

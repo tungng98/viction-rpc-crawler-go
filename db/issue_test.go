@@ -2,7 +2,8 @@ package db
 
 import (
 	"testing"
-	"viction-rpc-crawler-go/x/ethutil"
+
+	"github.com/tforce-io/tf-golib/random/pseudorng"
 )
 
 func TestInsertIssue(t *testing.T) {
@@ -10,30 +11,30 @@ func TestInsertIssue(t *testing.T) {
 	defer db.Disconnect()
 
 	t.Run("duplicated_hash", func(t *testing.T) {
-		currentBlockNum := ethutil.RandomNumber(0, ^uint64(0))
-		prevBlockNum := ethutil.RandomNumber(0, currentBlockNum)
+		currentBlockNum := pseudorng.Uint64r(0, ^uint64(0))
+		prevBlockNum := pseudorng.Uint64r(0, currentBlockNum)
 		err := db.SaveDuplicatedTxHashIssue(
-			ethutil.RandomTxHash(),
+			pseudorng.Hex(32),
 			currentBlockNum,
-			ethutil.RandomBlockHash(),
+			pseudorng.Hex(32),
 			prevBlockNum,
-			ethutil.RandomBlockHash(),
+			pseudorng.Hex(32),
 		)
 		if err != nil {
 			t.Fatalf("Error while getting saving issue. %v", err)
 		}
 		err = db.SaveIssues([]*Issue{
 			NewDuplicatedTxHashIssue(
-				ethutil.RandomTxHash(),
-				ethutil.RandomNumber(0, ^uint64(0)),
-				ethutil.RandomBlockHash(),
-				ethutil.RandomNumber(0, ^uint64(0)),
-				ethutil.RandomBlockHash(),
+				pseudorng.Hex(32),
+				pseudorng.Uint64r(0, ^uint64(0)),
+				pseudorng.Hex(32),
+				pseudorng.Uint64r(0, ^uint64(0)),
+				pseudorng.Hex(32),
 			),
 			NewReorgBlockIssue(
-				ethutil.RandomNumber(0, ^uint64(0)),
-				ethutil.RandomTxHash(),
-				ethutil.RandomTxHash(),
+				pseudorng.Uint64r(0, ^uint64(0)),
+				pseudorng.Hex(32),
+				pseudorng.Hex(32),
 			),
 		})
 		if err != nil {
