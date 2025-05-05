@@ -34,11 +34,11 @@ type ScheduleSvcInternal struct {
 	MainChan chan *ScheduleSvcCommand
 
 	IntervalMs int64
-	Controller ServiceController
-	Logger     *zerolog.Logger
+	//Controller ServiceController
+	Logger *zerolog.Logger
 }
 
-func NewScheduleSvc(intervalMs int64, controller ServiceController, logger *zerolog.Logger) ScheduleSvc {
+func NewScheduleSvc(intervalMs int64 /*, controller ServiceController*/, logger *zerolog.Logger) ScheduleSvc {
 	svc := ScheduleSvc{
 		i: &ScheduleSvcInternal{
 			Jobs: map[string]*JobMetadata{},
@@ -48,8 +48,8 @@ func NewScheduleSvc(intervalMs int64, controller ServiceController, logger *zero
 			MainChan: make(chan *ScheduleSvcCommand, MAIN_CHAN_CAPACITY),
 
 			IntervalMs: intervalMs,
-			Controller: controller,
-			Logger:     logger,
+			//Controller: controller,
+			Logger: logger,
 		},
 	}
 	return svc
@@ -68,9 +68,9 @@ func (s ScheduleSvc) ServiceID() string {
 	return "Scheduler"
 }
 
-func (s ScheduleSvc) Controller() ServiceController {
-	return s.i.Controller
-}
+// func (s ScheduleSvc) Controller() ServiceController {
+// 	return s.i.Controller
+// }
 
 func (s ScheduleSvc) SetWorker(workerCount uint16) {
 	s.i.WorkerMainCounter.Lock()
@@ -135,7 +135,7 @@ func (s *ScheduleSvc) processInterval(workerID uint64) {
 		for jobID := range s.i.Jobs {
 			job := s.i.Jobs[jobID]
 			if job.nextExecution < currentTimeMs {
-				s.i.Controller.ExecService(job.ServiceID, job.Command, job.Params)
+				// s.i.Controller.ExecService(job.ServiceID, job.Command, job.Params)
 				job.nextExecution = currentTimeMs - (currentTimeMs % job.IntervalMs) + job.IntervalMs
 			}
 		}

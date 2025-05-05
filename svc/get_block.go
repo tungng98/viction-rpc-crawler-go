@@ -15,8 +15,10 @@ type GetBlock struct {
 	rpc *rpc.EthClient
 }
 
-func NewGetBlock(logger diag.Logger) *GetBlock {
-	svc := &GetBlock{}
+func NewGetBlock(logger diag.Logger, rpc *rpc.EthClient) *GetBlock {
+	svc := &GetBlock{
+		rpc: rpc,
+	}
 	svc.i = svc.InitServiceCore("GetBlock", logger, svc.coreProcessHook)
 	svc.o = &GetBlockOptions{
 		MaxRetries: 3,
@@ -40,6 +42,19 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 			Error:  err,
 		}
 		msg.Return(result)
+		s.i.Logger.Infof("%s#%d: Block #%d retrieved.", s.i.ServiceID, workerID, blockNumber.Uint64())
+	case "get_block_number":
+		head, err := s.rpc.GetBlockNumber()
+		retryCount := 0
+		for err != nil && retryCount < s.o.MaxRetries {
+			head, err = s.rpc.GetBlockNumber()
+			retryCount++
+		}
+		result := &GetBlockNumberResult{
+			Number: new(big.Int).SetUint64(head),
+			Error:  err,
+		}
+		msg.Return(result)
 	}
 	return &multiplex.HookState{Handled: true}
 }
@@ -51,5 +66,10 @@ type GetBlockOptions struct {
 type GetBlockResult struct {
 	Number *big.Int
 	Data   *rpc.Block
+	Error  error
+}
+
+type GetBlockNumberResult struct {
+	Number *big.Int
 	Error  error
 }
