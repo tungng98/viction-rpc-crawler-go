@@ -90,6 +90,8 @@ type TxTraceResult struct {
 	Error  string                  `json:"error,omitempty"`
 }
 
+type TraceBlockResult []*TraceTransactionResult
+
 type TraceTransactionResult struct {
 	Type    string `json:"type,omitempty"`
 	From    string `json:"from,omitempty"`

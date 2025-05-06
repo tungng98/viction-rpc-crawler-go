@@ -25,6 +25,11 @@ func NewController(cfg *config.RootConfig, db *db.DbClient, rpc *rpc.EthClient, 
 	getBlocks.SetWorker(1)
 	router.Register(getBlocks)
 
+	traceBlocks := NewTraceBlocks(logger)
+	traceBlocks.SetRouter(router)
+	traceBlocks.SetWorker(1)
+	router.Register(traceBlocks)
+
 	indexBlock := NewIndexBlock(logger)
 	indexBlock.SetRouter(router)
 	indexBlock.SetWorker(4)
@@ -61,6 +66,11 @@ func NewController(cfg *config.RootConfig, db *db.DbClient, rpc *rpc.EthClient, 
 		getBlock.SetRouter(router)
 		getBlock.SetWorker(cfg.Service.Worker.GetBlock)
 		router.Register(getBlock)
+
+		traceBlock := NewTraceBlock(logger, rpc)
+		traceBlock.SetRouter(router)
+		traceBlock.SetWorker(cfg.Service.Worker.GetBlock)
+		router.Register(traceBlock)
 	}
 
 	return &Controller{

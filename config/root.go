@@ -46,7 +46,8 @@ type SchedulerConfig struct {
 }
 
 type JobWorkerConfig struct {
-	GetBlock uint64 `koanf:"getBlock"`
+	GetBlock   uint64 `koanf:"getBlock"`
+	TraceBlock uint64 `koanf:"traceBlock"`
 }
 
 func DefaultRootConfig() *RootConfig {
@@ -66,7 +67,8 @@ func DefaultRootConfig() *RootConfig {
 				IndexBlockBatch:    900,
 			},
 			Worker: &JobWorkerConfig{
-				GetBlock: 8,
+				GetBlock:   8,
+				TraceBlock: 8,
 			},
 		},
 	}

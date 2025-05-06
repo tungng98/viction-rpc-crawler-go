@@ -39,6 +39,22 @@ func (m *BenchmarkModule) GetBlocks(from, to *big.Int, batchSize int) error {
 	return nil
 }
 
+func (m *BenchmarkModule) TraceBlocks(from, to *big.Int, batchSize int) error {
+	m.logger.Info().Msg("Start debug_traceBlockByNumber benchmark.")
+	rpcClient, err := rpc.Connect(m.config.Blockchain.RpcUrl)
+	if err != nil {
+		return err
+	}
+	c := svc.NewController(m.config, nil, rpcClient, config.NewZerologLogger(m.logger))
+	go c.DispatchOnce("TraceBlocks", "trace_blocks_range", multiplex.ExecParams{
+		"from_block_number": from,
+		"to_block_number":   to,
+		"batch_size":        batchSize,
+	})
+	c.Run()
+	return nil
+}
+
 func (m *BenchmarkModule) logError(err error) {
 	if err != nil {
 		m.logger.Err(err).Msg("Unexpected error has occurred. Program will exit.")
@@ -68,6 +84,24 @@ func BenchmarkCmd() *cobra.Command {
 	getBlockCmd.Flags().String("rpc", "", "RPC URL.")
 	getBlockCmd.Flags().Uint64P("to", "t", 1000, "To block number.")
 	rootCmd.AddCommand(getBlockCmd)
+
+	traceBlocksCmd := &cobra.Command{
+		Use:   "trace-block",
+		Short: "Benchmark using debug_traceBlockByNumber method.",
+		Run: func(cmd *cobra.Command, args []string) {
+			c := InitApp()
+			defer c.Close()
+			flags := ParseBenchmarkFlags(cmd)
+			c.ConfigFromCli(flags.Configs)
+			m := NewBenchmarkModule(c, "traceBlock")
+			m.logError(m.TraceBlocks(flags.From, flags.To, flags.Batch))
+		},
+	}
+	traceBlocksCmd.Flags().Int("batch", 900, "Batch size.")
+	traceBlocksCmd.Flags().Uint64P("from", "f", 0, "Start block number.")
+	traceBlocksCmd.Flags().String("rpc", "", "RPC URL.")
+	traceBlocksCmd.Flags().Uint64P("to", "t", 1000, "To block number.")
+	rootCmd.AddCommand(traceBlocksCmd)
 
 	return rootCmd
 }

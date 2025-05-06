@@ -17,7 +17,7 @@ func (client *EthClient) GetBlockFinalityByNumber(number *big.Int) (*uint, strin
 	return fn, str, err
 }
 
-func (client *EthClient) TraceBlockByNumber(number *big.Int) ([]*TraceTransactionResult, string, error) {
+func (client *EthClient) TraceBlockByNumber(number *big.Int) (TraceBlockResult, string, error) {
 	tracerConfig := struct {
 		Tracer  string `json:"tracer"`
 		Timeout string `json:"timeout"`
@@ -27,9 +27,9 @@ func (client *EthClient) TraceBlockByNumber(number *big.Int) ([]*TraceTransactio
 	}
 	tempResult, str, err := rpcCall[[]TxTraceResult](client, "debug_traceBlockByNumber", ethutil.BigIntToHex(number), tracerConfig)
 	if err != nil {
-		return []*TraceTransactionResult{}, str, err
+		return TraceBlockResult{}, str, err
 	}
-	result := make([]*TraceTransactionResult, len(*tempResult))
+	result := make(TraceBlockResult, len(*tempResult))
 	for i, r := range *tempResult {
 		result[i] = r.Result
 	}
