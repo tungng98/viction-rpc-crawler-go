@@ -41,6 +41,23 @@ func (m *DownloadModule) GetBlocks(from, to *big.Int, batchSize int, root string
 	return nil
 }
 
+func (m *DownloadModule) GetBlockTraces(from, to *big.Int, batchSize int, root string) error {
+	m.logger.Info().Msg("Start debug_traceBlockByNumber download.")
+	rpcClient, err := rpc.Connect(m.config.Blockchain.RpcUrl)
+	if err != nil {
+		return err
+	}
+	c := svc.NewController(m.config, nil, rpcClient, config.NewZerologLogger(m.logger))
+	go c.DispatchOnce("DownloadBlock", "download_block_traces", multiplex.ExecParams{
+		"from_block_number": from,
+		"to_block_number":   to,
+		"batch_size":        batchSize,
+		"root":              opx.Ternary(root == "", m.config.FileSystem.RootPath, root),
+	})
+	c.Run()
+	return nil
+}
+
 func (m *DownloadModule) logError(err error) {
 	if err != nil {
 		m.logger.Err(err).Msg("Unexpected error has occurred. Program will exit.")
@@ -71,6 +88,25 @@ func DownloadCmd() *cobra.Command {
 	getBlocksCmd.Flags().String("root", "", "Root output dir.")
 	getBlocksCmd.Flags().Uint64P("to", "t", 1, "To block number.")
 	rootCmd.AddCommand(getBlocksCmd)
+
+	traceBlocksCmd := &cobra.Command{
+		Use:   "trace-block",
+		Short: "Download debug_traceBlockByNumber data.",
+		Run: func(cmd *cobra.Command, args []string) {
+			c := InitApp()
+			defer c.Close()
+			flags := ParseDownloadFlags(cmd)
+			c.ConfigFromCli(flags.Configs)
+			m := NewDownloadModule(c, "getBlockTraces")
+			m.logError(m.GetBlockTraces(flags.From, flags.To, flags.Batch, flags.Root))
+		},
+	}
+	traceBlocksCmd.Flags().Int("batch", 1, "Batch size.")
+	traceBlocksCmd.Flags().Uint64P("from", "f", 1, "Start block number.")
+	traceBlocksCmd.Flags().String("rpc", "", "RPC URL.")
+	traceBlocksCmd.Flags().String("root", "", "Root output dir.")
+	traceBlocksCmd.Flags().Uint64P("to", "t", 1, "To block number.")
+	rootCmd.AddCommand(traceBlocksCmd)
 
 	return rootCmd
 }
