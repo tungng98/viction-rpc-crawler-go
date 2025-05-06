@@ -1,10 +1,8 @@
 package svc
 
 import (
-	"encoding/json"
 	"path/filepath"
 	"viction-rpc-crawler-go/filesystem"
-	"viction-rpc-crawler-go/rpc"
 
 	"github.com/tforce-io/tf-golib/diag"
 	"github.com/tforce-io/tf-golib/multiplex"
@@ -24,24 +22,19 @@ func NewWriteFileSystem(logger diag.Logger) *WriteFileSystem {
 func (s *WriteFileSystem) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessage) *multiplex.HookState {
 	switch msg.Command {
 	case "eth_getBlockByNumber":
-		blockJSONs := msg.GetParam("blocks", []string{}).([]string)
+		blockDatas := msg.GetParam("blocks", []*GetBlockResult{}).([]*GetBlockResult)
 		rootDir := msg.GetParam("root", "").(string)
 		if rootDir == "" {
 			s.i.Logger.Warnf("%s#%d: RootDir is empty. No files will be written.", s.ServiceID(), workerID)
+			msg.Return(nil)
 			break
 		}
 		outputDir := filepath.Join(rootDir, "getBlockByNumber")
-		for _, blockJSON := range blockJSONs {
-			var block *rpc.Block
-			err := json.Unmarshal([]byte(blockJSON), &block)
+		for _, blockData := range blockDatas {
+			blockFile := filepath.Join(outputDir, blockData.Number.String()+".json")
+			err := filesystem.WriteFile(blockFile, []byte(blockData.RawData))
 			if err != nil {
-				s.i.Logger.Errorf(err, "%s#%d: Failed to write block file.", s.ServiceID(), workerID)
-				continue
-			}
-			blockFile := filepath.Join(outputDir, block.Number.BigInt().String()+".json")
-			err = filesystem.WriteFile(blockFile, []byte(blockJSON))
-			if err != nil {
-				s.i.Logger.Errorf(err, "%s#%d: Failed to write block file #%d.", s.ServiceID(), workerID, block.Number.BigInt().Uint64())
+				s.i.Logger.Errorf(err, "%s#%d: Failed to write block file #%d.", s.ServiceID(), workerID, blockData.Number.Uint64())
 				continue
 			}
 		}

@@ -57,16 +57,15 @@ func (s *DownloadBlock) downloadBlocks(workerID uint64, from, to *big.Int, batch
 		getBlocksRequest.ExpectReturn()
 		s.Dispatch("GetBlocks", "get_blocks_range", getBlocksRequest)
 		getBlocksResponse := getBlocksRequest.WaitForReturn().(*GetBlocksResult)
-		getBlockResults := getBlocksResponse.Data
-		blocks := make([]string, len(getBlockResults))
-		for i, getBlockResult := range getBlockResults {
-			if getBlockResult.Error != nil {
+		getBlockResults := []*GetBlockResult{}
+		for _, blockResult := range getBlocksResponse.Data {
+			if blockResult.Error != nil {
 				continue
 			}
-			blocks[i] = getBlockResult.RawData
+			getBlockResults = append(getBlockResults, blockResult)
 		}
 		writeBlockRequest := multiplex.ExecParams{
-			"blocks": blocks,
+			"blocks": getBlockResults,
 			"root":   root,
 		}
 		writeBlockRequest.ExpectReturn()
