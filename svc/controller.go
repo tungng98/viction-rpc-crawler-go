@@ -30,10 +30,10 @@ func NewController(cfg *config.RootConfig, db *db.DbClient, rpc *rpc.EthClient, 
 	traceBlocks.SetWorker(1)
 	router.Register(traceBlocks)
 
-	indexBlock := NewIndexBlock(logger)
-	indexBlock.SetRouter(router)
-	indexBlock.SetWorker(4)
-	router.Register(indexBlock)
+	downloadBlock := NewDownloadBlock(logger)
+	downloadBlock.SetRouter(router)
+	downloadBlock.SetWorker(4)
+	router.Register(downloadBlock)
 
 	readFileSystem := NewReadFileSystem(logger)
 	readFileSystem.SetRouter(router)

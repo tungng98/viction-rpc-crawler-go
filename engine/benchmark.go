@@ -67,7 +67,7 @@ func BenchmarkCmd() *cobra.Command {
 		Short: "Measure performance of Viction node.",
 	}
 
-	getBlockCmd := &cobra.Command{
+	getBlocksCmd := &cobra.Command{
 		Use:   "get-block",
 		Short: "Benchmark using eth_getBlockByNumber method.",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -79,11 +79,11 @@ func BenchmarkCmd() *cobra.Command {
 			m.logError(m.GetBlocks(flags.From, flags.To, flags.Batch))
 		},
 	}
-	getBlockCmd.Flags().Int("batch", 900, "Batch size.")
-	getBlockCmd.Flags().Uint64P("from", "f", 0, "Start block number.")
-	getBlockCmd.Flags().String("rpc", "", "RPC URL.")
-	getBlockCmd.Flags().Uint64P("to", "t", 1000, "To block number.")
-	rootCmd.AddCommand(getBlockCmd)
+	getBlocksCmd.Flags().Int("batch", 900, "Batch size.")
+	getBlocksCmd.Flags().Uint64P("from", "f", 0, "Start block number.")
+	getBlocksCmd.Flags().String("rpc", "", "RPC URL.")
+	getBlocksCmd.Flags().Uint64P("to", "t", 1000, "To block number.")
+	rootCmd.AddCommand(getBlocksCmd)
 
 	traceBlocksCmd := &cobra.Command{
 		Use:   "trace-block",

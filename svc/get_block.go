@@ -6,6 +6,7 @@ import (
 
 	"github.com/tforce-io/tf-golib/diag"
 	"github.com/tforce-io/tf-golib/multiplex"
+	"github.com/tforce-io/tf-golib/opx"
 )
 
 type GetBlock struct {
@@ -42,7 +43,10 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 			RawData: str,
 			Error:   err,
 		}
-		s.i.Logger.Infof("%s#%d: Block #%d retrieved.", s.i.ServiceID, workerID, blockNumber.Uint64())
+		s.i.Logger.Infof("%s#%d: Block #%d processed. %s. Retry count = %d.", s.i.ServiceID, workerID, blockNumber.Uint64(),
+			opx.Ternary(err == nil, "SUCCESS", "FAILED"),
+			retryCount,
+		)
 		msg.Return(result)
 	case "get_block_number":
 		head, err := s.rpc.GetBlockNumber()
@@ -56,6 +60,9 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 			Error:  err,
 		}
 		msg.Return(result)
+	default:
+		s.i.Logger.Warnf("%s#%d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)
+		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}
 }

@@ -31,7 +31,7 @@ func (m *DownloadModule) GetBlocks(from, to *big.Int, batchSize int, root string
 		return err
 	}
 	c := svc.NewController(m.config, nil, rpcClient, config.NewZerologLogger(m.logger))
-	go c.DispatchOnce("IndexBlock", "download", multiplex.ExecParams{
+	go c.DispatchOnce("DownloadBlock", "download_blocks", multiplex.ExecParams{
 		"from_block_number": from,
 		"to_block_number":   to,
 		"batch_size":        batchSize,
@@ -53,7 +53,7 @@ func DownloadCmd() *cobra.Command {
 		Short: "Download response from RPC and store to filesystem.",
 	}
 
-	getBlockCmd := &cobra.Command{
+	getBlocksCmd := &cobra.Command{
 		Use:   "get-block",
 		Short: "Download eth_getBlockByNumber data.",
 		Run: func(cmd *cobra.Command, args []string) {
@@ -65,12 +65,12 @@ func DownloadCmd() *cobra.Command {
 			m.logError(m.GetBlocks(flags.From, flags.To, flags.Batch, flags.Root))
 		},
 	}
-	getBlockCmd.Flags().Int("batch", 1, "Batch size.")
-	getBlockCmd.Flags().Uint64P("from", "f", 1, "Start block number.")
-	getBlockCmd.Flags().String("rpc", "", "RPC URL.")
-	getBlockCmd.Flags().String("root", "", "Root output dir.")
-	getBlockCmd.Flags().Uint64P("to", "t", 1, "To block number.")
-	rootCmd.AddCommand(getBlockCmd)
+	getBlocksCmd.Flags().Int("batch", 1, "Batch size.")
+	getBlocksCmd.Flags().Uint64P("from", "f", 1, "Start block number.")
+	getBlocksCmd.Flags().String("rpc", "", "RPC URL.")
+	getBlocksCmd.Flags().String("root", "", "Root output dir.")
+	getBlocksCmd.Flags().Uint64P("to", "t", 1, "To block number.")
+	rootCmd.AddCommand(getBlocksCmd)
 
 	return rootCmd
 }

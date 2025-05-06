@@ -46,6 +46,9 @@ func (s *WriteFileSystem) coreProcessHook(workerID uint64, msg *multiplex.Servic
 			}
 		}
 		msg.Return(true)
+	default:
+		s.i.Logger.Warnf("%s#%d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)
+		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}
 }

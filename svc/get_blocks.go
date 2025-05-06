@@ -65,6 +65,9 @@ func (s *GetBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessa
 		}
 		s.i.Logger.Infof("%s#%d: %d blocks retrieved in %v.", s.i.ServiceID, workerID, len(requests), time.Since(startTime))
 		msg.Return(results)
+	default:
+		s.i.Logger.Warnf("%s#%d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)
+		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}
 }

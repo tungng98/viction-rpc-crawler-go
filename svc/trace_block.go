@@ -6,6 +6,7 @@ import (
 
 	"github.com/tforce-io/tf-golib/diag"
 	"github.com/tforce-io/tf-golib/multiplex"
+	"github.com/tforce-io/tf-golib/opx"
 )
 
 type TraceBlock struct {
@@ -42,8 +43,14 @@ func (s *TraceBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMess
 			RawData: str,
 			Error:   err,
 		}
-		s.i.Logger.Infof("%s#%d: Block #%d traced.", s.i.ServiceID, workerID, blockNumber.Uint64())
+		s.i.Logger.Infof("%s#%d: Block #%d processed. %s. Retry count = %d.", s.i.ServiceID, workerID, blockNumber.Uint64(),
+			opx.Ternary(err == nil, "SUCCESS", "FAILED"),
+			retryCount,
+		)
 		msg.Return(result)
+	default:
+		s.i.Logger.Warnf("%s#%d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)
+		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}
 }
