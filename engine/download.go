@@ -86,6 +86,7 @@ func DownloadCmd() *cobra.Command {
 	getBlocksCmd.Flags().Uint64P("from", "f", 1, "Start block number.")
 	getBlocksCmd.Flags().String("rpc", "", "RPC URL.")
 	getBlocksCmd.Flags().String("root", "", "Root output dir.")
+	getBlocksCmd.Flags().Uint64("thread", 0, "Number of concurrent requests.")
 	getBlocksCmd.Flags().Uint64P("to", "t", 1, "To block number.")
 	rootCmd.AddCommand(getBlocksCmd)
 
@@ -105,6 +106,7 @@ func DownloadCmd() *cobra.Command {
 	traceBlocksCmd.Flags().Uint64P("from", "f", 1, "Start block number.")
 	traceBlocksCmd.Flags().String("rpc", "", "RPC URL.")
 	traceBlocksCmd.Flags().String("root", "", "Root output dir.")
+	traceBlocksCmd.Flags().Uint64("thread", 0, "Number of concurrent requests.")
 	traceBlocksCmd.Flags().Uint64P("to", "t", 1, "To block number.")
 	rootCmd.AddCommand(traceBlocksCmd)
 
@@ -125,11 +127,16 @@ func ParseDownloadFlags(cmd *cobra.Command) *DownloadFlags {
 	from, _ := cmd.Flags().GetUint64("from")
 	rootDir, _ := cmd.Flags().GetString("root")
 	rpcUrl, _ := cmd.Flags().GetString("rpc")
+	thread, _ := cmd.Flags().GetUint64("thread")
 	to, _ := cmd.Flags().GetUint64("to")
 
 	configs := make(map[string]interface{})
 	if rpcUrl != "" {
 		configs[config.BlockchainRpcUrlKey] = rpcUrl
+	}
+	if thread > 0 {
+		configs[config.ServiceWorkerGetBlockKey] = thread
+		configs[config.ServiceWorkerTraceBlockKey] = thread
 	}
 
 	return &DownloadFlags{

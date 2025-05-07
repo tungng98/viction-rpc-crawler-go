@@ -3,8 +3,12 @@ package config
 import "github.com/rs/zerolog"
 
 const (
-	BlockchainRpcUrlKey   = "blockchain.rpc"
+	BlockchainRpcUrlKey = "blockchain.rpc"
+
 	FileSystemRootPathKey = "filesystem.rootPath"
+
+	ServiceWorkerGetBlockKey   = "service.worker.getBlock"
+	ServiceWorkerTraceBlockKey = "service.worker.traceBlock"
 )
 
 type RootConfig struct {

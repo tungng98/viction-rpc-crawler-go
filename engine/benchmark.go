@@ -82,6 +82,7 @@ func BenchmarkCmd() *cobra.Command {
 	getBlocksCmd.Flags().Int("batch", 900, "Batch size.")
 	getBlocksCmd.Flags().Uint64P("from", "f", 0, "Start block number.")
 	getBlocksCmd.Flags().String("rpc", "", "RPC URL.")
+	getBlocksCmd.Flags().Uint64("thread", 0, "Number of concurrent requests.")
 	getBlocksCmd.Flags().Uint64P("to", "t", 1000, "To block number.")
 	rootCmd.AddCommand(getBlocksCmd)
 
@@ -100,6 +101,7 @@ func BenchmarkCmd() *cobra.Command {
 	traceBlocksCmd.Flags().Int("batch", 900, "Batch size.")
 	traceBlocksCmd.Flags().Uint64P("from", "f", 0, "Start block number.")
 	traceBlocksCmd.Flags().String("rpc", "", "RPC URL.")
+	traceBlocksCmd.Flags().Uint64("thread", 0, "Number of concurrent requests.")
 	traceBlocksCmd.Flags().Uint64P("to", "t", 1000, "To block number.")
 	rootCmd.AddCommand(traceBlocksCmd)
 
@@ -118,11 +120,16 @@ func ParseBenchmarkFlags(cmd *cobra.Command) *BenchmarkFlags {
 	batch, _ := cmd.Flags().GetInt("batch")
 	from, _ := cmd.Flags().GetUint64("from")
 	rpcUrl, _ := cmd.Flags().GetString("rpc")
+	thread, _ := cmd.Flags().GetUint64("thread")
 	to, _ := cmd.Flags().GetUint64("to")
 
 	configs := make(map[string]interface{})
 	if rpcUrl != "" {
 		configs[config.BlockchainRpcUrlKey] = rpcUrl
+	}
+	if thread > 0 {
+		configs[config.ServiceWorkerGetBlockKey] = thread
+		configs[config.ServiceWorkerTraceBlockKey] = thread
 	}
 
 	return &BenchmarkFlags{
