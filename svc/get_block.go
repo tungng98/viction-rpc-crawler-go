@@ -2,7 +2,7 @@ package svc
 
 import (
 	"math/big"
-	"time"
+	"strings"
 	"viction-rpc-crawler-go/rpc"
 
 	"github.com/tforce-io/tf-golib/diag"
@@ -13,7 +13,7 @@ import (
 type GetBlock struct {
 	multiplex.ServiceCore
 	i   *multiplex.ServiceCoreInternal
-	o   *GetBlockOptions
+	o   *NetworkOptions
 	rpc *rpc.EthClient
 }
 
@@ -22,9 +22,9 @@ func NewGetBlock(logger diag.Logger, rpc *rpc.EthClient) *GetBlock {
 		rpc: rpc,
 	}
 	svc.i = svc.InitServiceCore("GetBlock", logger, svc.coreProcessHook)
-	svc.o = &GetBlockOptions{
-		MaxRetries: 3,
-		RetrySpace: 250 * time.Millisecond,
+	svc.o = &NetworkOptions{
+		MaxRetries:  3,
+		MaxRetryGap: 200 * 1000000,
 	}
 	return svc
 }
@@ -35,9 +35,18 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 		blockNumber := msg.GetParam("block_number", new(big.Int)).(*big.Int)
 		block, str, err := s.rpc.GetBlockByNumber2(blockNumber)
 		retryCount := 0
+		halfRetry := false
 		for err != nil && retryCount < s.o.MaxRetries {
-			s.i.Logger.Warnf("%s#%d: Block #%d retrying. %v", s.i.ServiceID, workerID, blockNumber.Uint64(), err)
-			time.Sleep(s.o.RetrySpace)
+			errStr := err.Error()
+			if strings.HasPrefix(err.Error(), "503 Service Unavailable: <html><body><h1>503 Service Unavailable</h1>") {
+				if !halfRetry {
+					retryCount--
+				}
+				halfRetry = !halfRetry
+			} else {
+				s.i.Logger.Warnf("%s#%d: Block #%d retrying. %v", s.i.ServiceID, workerID, blockNumber.Uint64(), errStr)
+			}
+			s.o.WaitRetryGap()
 			block, str, err = s.rpc.GetBlockByNumber2(blockNumber)
 			retryCount++
 		}
@@ -55,9 +64,18 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 	case "get_block_number":
 		head, err := s.rpc.GetBlockNumber()
 		retryCount := 0
+		halfRetry := false
 		for err != nil && retryCount < s.o.MaxRetries {
-			s.i.Logger.Warnf("%s#%d: Retrying. %v", s.i.ServiceID, workerID, err)
-			time.Sleep(s.o.RetrySpace)
+			errStr := err.Error()
+			if strings.HasPrefix(err.Error(), "503 Service Unavailable: <html><body><h1>503 Service Unavailable</h1>") {
+				if !halfRetry {
+					retryCount--
+				}
+				halfRetry = !halfRetry
+			} else {
+				s.i.Logger.Warnf("%s#%d: Retrying. %v", s.i.ServiceID, workerID, errStr)
+			}
+			s.o.WaitRetryGap()
 			head, err = s.rpc.GetBlockNumber()
 			retryCount++
 		}
@@ -71,11 +89,6 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}
-}
-
-type GetBlockOptions struct {
-	MaxRetries int
-	RetrySpace time.Duration
 }
 
 type GetBlockResult struct {

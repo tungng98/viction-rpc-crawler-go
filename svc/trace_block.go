@@ -2,7 +2,7 @@ package svc
 
 import (
 	"math/big"
-	"time"
+	"strings"
 	"viction-rpc-crawler-go/rpc"
 
 	"github.com/tforce-io/tf-golib/diag"
@@ -13,7 +13,7 @@ import (
 type TraceBlock struct {
 	multiplex.ServiceCore
 	i   *multiplex.ServiceCoreInternal
-	o   *TraceBlockOptions
+	o   *NetworkOptions
 	rpc *rpc.EthClient
 }
 
@@ -22,9 +22,9 @@ func NewTraceBlock(logger diag.Logger, rpc *rpc.EthClient) *TraceBlock {
 		rpc: rpc,
 	}
 	svc.i = svc.InitServiceCore("TraceBlock", logger, svc.coreProcessHook)
-	svc.o = &TraceBlockOptions{
-		MaxRetries: 5,
-		RetrySpace: 250 * time.Millisecond,
+	svc.o = &NetworkOptions{
+		MaxRetries:  5,
+		MaxRetryGap: 200 * 1000000,
 	}
 	return svc
 }
@@ -35,9 +35,18 @@ func (s *TraceBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMess
 		blockNumber := msg.GetParam("block_number", new(big.Int)).(*big.Int)
 		blockTraces, str, err := s.rpc.TraceBlockByNumber(blockNumber)
 		retryCount := 0
+		halfRetry := false
 		for err != nil && retryCount < s.o.MaxRetries {
-			s.i.Logger.Warnf("%s#%d: Block #%d retrying. %v", s.i.ServiceID, workerID, blockNumber.Uint64(), err)
-			time.Sleep(s.o.RetrySpace)
+			errStr := err.Error()
+			if strings.HasPrefix(err.Error(), "503 Service Unavailable: <html><body><h1>503 Service Unavailable</h1>") {
+				if !halfRetry {
+					retryCount--
+				}
+				halfRetry = !halfRetry
+			} else {
+				s.i.Logger.Warnf("%s#%d: Block #%d retrying. %v", s.i.ServiceID, workerID, blockNumber.Uint64(), errStr)
+			}
+			s.o.WaitRetryGap()
 			blockTraces, str, err = s.rpc.TraceBlockByNumber(blockNumber)
 			retryCount++
 		}
@@ -57,11 +66,6 @@ func (s *TraceBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMess
 		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}
-}
-
-type TraceBlockOptions struct {
-	MaxRetries int
-	RetrySpace time.Duration
 }
 
 type TraceBlockResult struct {

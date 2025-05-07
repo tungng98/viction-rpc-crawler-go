@@ -1,6 +1,25 @@
 package svc
 
-import "sync"
+import (
+	"sync"
+	"time"
+
+	"github.com/tforce-io/tf-golib/random/securerng"
+)
+
+type NetworkOptions struct {
+	MaxRetries  int
+	MaxRetryGap uint64
+}
+
+func (o *NetworkOptions) WaitRetryGap() {
+	minRetryGap := uint64(20000000)
+	if o.MaxRetryGap < minRetryGap {
+		time.Sleep(time.Duration(minRetryGap))
+	}
+	duration := securerng.Uint64r(minRetryGap/2, o.MaxRetryGap)
+	time.Sleep(time.Duration(duration))
+}
 
 type ProcessState int8
 
