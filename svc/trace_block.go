@@ -2,6 +2,7 @@ package svc
 
 import (
 	"math/big"
+	"time"
 	"viction-rpc-crawler-go/rpc"
 
 	"github.com/tforce-io/tf-golib/diag"
@@ -22,7 +23,8 @@ func NewTraceBlock(logger diag.Logger, rpc *rpc.EthClient) *TraceBlock {
 	}
 	svc.i = svc.InitServiceCore("TraceBlock", logger, svc.coreProcessHook)
 	svc.o = &TraceBlockOptions{
-		MaxRetries: 3,
+		MaxRetries: 5,
+		RetrySpace: 250 * time.Millisecond,
 	}
 	return svc
 }
@@ -34,6 +36,8 @@ func (s *TraceBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMess
 		blockTraces, str, err := s.rpc.TraceBlockByNumber(blockNumber)
 		retryCount := 0
 		for err != nil && retryCount < s.o.MaxRetries {
+			s.i.Logger.Warnf("%s#%d: Block #%d retrying. %v", s.i.ServiceID, workerID, blockNumber.Uint64(), err)
+			time.Sleep(s.o.RetrySpace)
 			blockTraces, str, err = s.rpc.TraceBlockByNumber(blockNumber)
 			retryCount++
 		}
@@ -57,6 +61,7 @@ func (s *TraceBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMess
 
 type TraceBlockOptions struct {
 	MaxRetries int
+	RetrySpace time.Duration
 }
 
 type TraceBlockResult struct {

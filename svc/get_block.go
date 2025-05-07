@@ -2,6 +2,7 @@ package svc
 
 import (
 	"math/big"
+	"time"
 	"viction-rpc-crawler-go/rpc"
 
 	"github.com/tforce-io/tf-golib/diag"
@@ -23,6 +24,7 @@ func NewGetBlock(logger diag.Logger, rpc *rpc.EthClient) *GetBlock {
 	svc.i = svc.InitServiceCore("GetBlock", logger, svc.coreProcessHook)
 	svc.o = &GetBlockOptions{
 		MaxRetries: 3,
+		RetrySpace: 250 * time.Millisecond,
 	}
 	return svc
 }
@@ -34,6 +36,8 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 		block, str, err := s.rpc.GetBlockByNumber2(blockNumber)
 		retryCount := 0
 		for err != nil && retryCount < s.o.MaxRetries {
+			s.i.Logger.Warnf("%s#%d: Block #%d retrying. %v", s.i.ServiceID, workerID, blockNumber.Uint64(), err)
+			time.Sleep(s.o.RetrySpace)
 			block, str, err = s.rpc.GetBlockByNumber2(blockNumber)
 			retryCount++
 		}
@@ -52,6 +56,8 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 		head, err := s.rpc.GetBlockNumber()
 		retryCount := 0
 		for err != nil && retryCount < s.o.MaxRetries {
+			s.i.Logger.Warnf("%s#%d: Retrying. %v", s.i.ServiceID, workerID, err)
+			time.Sleep(s.o.RetrySpace)
 			head, err = s.rpc.GetBlockNumber()
 			retryCount++
 		}
@@ -69,6 +75,7 @@ func (s *GetBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessag
 
 type GetBlockOptions struct {
 	MaxRetries int
+	RetrySpace time.Duration
 }
 
 type GetBlockResult struct {

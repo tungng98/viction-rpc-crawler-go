@@ -53,6 +53,7 @@ func (s *GetBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessa
 		results := &GetBlocksResult{
 			Data: make([]*GetBlockResult, len(requests)),
 		}
+		errorCount := 0
 		if len(requests) > 0 {
 			signal.Add(len(requests))
 			for _, request := range requests {
@@ -61,9 +62,12 @@ func (s *GetBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMessa
 			signal.Wait()
 			for i, request := range requests {
 				results.Data[i] = request.ReturnResult().(*GetBlockResult)
+				if results.Data[i].Error != nil {
+					errorCount++
+				}
 			}
 		}
-		s.i.Logger.Infof("%s#%d: %d blocks retrieved in %v.", s.i.ServiceID, workerID, len(requests), time.Since(startTime))
+		s.i.Logger.Infof("%s#%d: %d blocks retrieved in %v. Error count = %d.", s.i.ServiceID, workerID, len(requests), time.Since(startTime), errorCount)
 		msg.Return(results)
 	default:
 		s.i.Logger.Warnf("%s#%d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)

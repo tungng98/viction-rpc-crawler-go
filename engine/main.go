@@ -48,7 +48,6 @@ func InitApp() *Controller {
 	exec, _ := os.Executable()
 	exec, _ = filesystem.GetAbsPath(exec)
 
-	cfg.Logger.Info().Msgf("TF UNIFILER v%s", version())
 	cfg.Logger.Info().Msg("RPC CRAWLER")
 	cfg.Logger.Info().Msgf("Working directory: %s", pwd)
 	cfg.Logger.Info().Msgf("Config directory: %s", cfg.Root.ConfigDir)
