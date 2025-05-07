@@ -1,6 +1,8 @@
 package svc
 
 import (
+	"fmt"
+	"math/big"
 	"path/filepath"
 	"viction-rpc-crawler-go/filesystem"
 
@@ -31,7 +33,8 @@ func (s *WriteFileSystem) coreProcessHook(workerID uint64, msg *multiplex.Servic
 		}
 		outputDir := filepath.Join(rootDir, "getBlockByNumber")
 		for _, blockData := range blockDatas {
-			blockFile := filepath.Join(outputDir, blockData.Number.String()+".json")
+			midDirs := GetNumberedDir(blockData.Number)
+			blockFile := filepath.Join(outputDir, midDirs[0], midDirs[1], blockData.Number.String()+".json")
 			err := filesystem.WriteFile(blockFile, []byte(blockData.RawData))
 			if err != nil {
 				s.i.Logger.Errorf(err, "%s#%d: Failed to write block file #%d.", s.ServiceID(), workerID, blockData.Number.Uint64())
@@ -49,7 +52,8 @@ func (s *WriteFileSystem) coreProcessHook(workerID uint64, msg *multiplex.Servic
 		}
 		outputDir := filepath.Join(rootDir, "traceBlockByNumber")
 		for _, blockTrace := range blockTraces {
-			blockTraceFile := filepath.Join(outputDir, blockTrace.Number.String()+".json")
+			midDirs := GetNumberedDir(blockTrace.Number)
+			blockTraceFile := filepath.Join(outputDir, midDirs[0], midDirs[1], blockTrace.Number.String()+".json")
 			err := filesystem.WriteFile(blockTraceFile, []byte(blockTrace.RawData))
 			if err != nil {
 				s.i.Logger.Errorf(err, "%s#%d: Failed to write block trace file #%d.", s.ServiceID(), workerID, blockTrace.Number.Uint64())
@@ -62,4 +66,13 @@ func (s *WriteFileSystem) coreProcessHook(workerID uint64, msg *multiplex.Servic
 		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}
+}
+
+func GetNumberedDir(number *big.Int) []string {
+	paddedNumber := fmt.Sprintf("%09d", number.Uint64())
+	length := len(paddedNumber)
+	firstLevel := paddedNumber[length-9 : length-6]
+	secondLevel := paddedNumber[length-6 : length-3]
+	thirdLevel := paddedNumber[length-3 : length]
+	return []string{firstLevel, secondLevel, thirdLevel}
 }
