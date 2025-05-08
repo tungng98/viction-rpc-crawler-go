@@ -44,7 +44,7 @@ func (s *TraceBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMess
 				}
 				halfRetry = !halfRetry
 			} else {
-				s.i.Logger.Warnf("%s#%d: Block #%d retrying. %v", s.i.ServiceID, workerID, blockNumber.Uint64(), errStr)
+				s.i.Logger.Warnf("%s#%02d: Block #%d retrying. %v", s.i.ServiceID, workerID, blockNumber.Uint64(), errStr)
 			}
 			s.o.WaitRetryGap()
 			blockTraces, str, err = s.rpc.TraceBlockByNumber(blockNumber)
@@ -56,13 +56,13 @@ func (s *TraceBlock) coreProcessHook(workerID uint64, msg *multiplex.ServiceMess
 			RawData: str,
 			Error:   err,
 		}
-		s.i.Logger.Infof("%s#%d: Block #%d processed. %s. Retry count = %d.", s.i.ServiceID, workerID, blockNumber.Uint64(),
+		s.i.Logger.Infof("%s#%02d: Block #%d processed. %s. Retry count = %d.", s.i.ServiceID, workerID, blockNumber.Uint64(),
 			opx.Ternary(err == nil, "SUCCESS", "FAILED"),
 			retryCount,
 		)
 		msg.Return(result)
 	default:
-		s.i.Logger.Warnf("%s#%d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)
+		s.i.Logger.Warnf("%s#%02d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)
 		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}

@@ -24,7 +24,7 @@ func (s *TraceBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMes
 	switch msg.Command {
 	case "trace_blocks":
 	case "trace_blocks_range":
-		s.i.Logger.Infof("%s#%d: %s started.", s.i.ServiceID, workerID, msg.Command)
+		s.i.Logger.Infof("%s#%02d: %s started.", s.i.ServiceID, workerID, msg.Command)
 		startTime := time.Now()
 		requests := []multiplex.ExecParams{}
 		signal := new(sync.WaitGroup)
@@ -67,10 +67,10 @@ func (s *TraceBlocks) coreProcessHook(workerID uint64, msg *multiplex.ServiceMes
 				}
 			}
 		}
-		s.i.Logger.Infof("%s#%d: %d blocks traced in %v. Error count = %d.", s.i.ServiceID, workerID, len(requests), time.Since(startTime), errorCount)
+		s.i.Logger.Infof("%s#%02d: %d blocks traced in %v. Error count = %d.", s.i.ServiceID, workerID, len(requests), time.Since(startTime), errorCount)
 		msg.Return(results)
 	default:
-		s.i.Logger.Warnf("%s#%d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)
+		s.i.Logger.Warnf("%s#%02d: Unknown command %s.", s.i.ServiceID, workerID, msg.Command)
 		msg.Return(nil)
 	}
 	return &multiplex.HookState{Handled: true}
