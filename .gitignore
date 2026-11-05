@@ -1,0 +1,37 @@
+# Attunic Protocol: commit only context.md, memory.md, and question.md
+.attunic/*.md
+!.attunic/context.md
+!.attunic/memory.md
+!.attunic/question.md
+
+# Local env and secrets
+.env
+.env.*
+!.env.example
+!.env.sample
+!.env.template
+*.local.env
+
+# OS files
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Go build artifacts
+*.dll
+*.dylib
+*.exe
+*.exe~
+*.so
+
+# Go test artifacts
+*.test
+coverage.out
+coverage.html
+coverage.txt
+
+# Go profiling data
+*.prof
+*.pprof
+
+# Project-specific
